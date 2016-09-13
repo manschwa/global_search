@@ -27,11 +27,19 @@ class IndexObject_Seminar extends IndexObject
     }
 
     public function getLink($object) {
-        return "dispatch.php/course/overview?cid={$object['range_id']}";
+        if ($GLOBALS['perm']->have_perm('admin')) {
+            return "dispatch.php/course/overview?cid={$object['range_id']}";
+        } else {
+            return "dispatch.php/course/details/?sem_id={$object['range_id']}";
+        }
     }
 
     public static function getStaticLink($object) {
-        return "dispatch.php/course/overview?cid={$object['range_id']}";
+        if ($GLOBALS['perm']->have_perm('admin')) {
+            return "dispatch.php/course/overview?cid={$object['range_id']}";
+        } else {
+            return "dispatch.php/course/details/?sem_id={$object['range_id']}";
+        }
     }
 
     public static function getStaticType()
