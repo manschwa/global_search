@@ -19,6 +19,11 @@
             <article>
                 <hr>
                 <p class="result_type"><?= $result['name'] ?></p>
+                <?
+                // only load avatars for the displayed results
+                $indexClass = 'IndexObject_' . ucfirst($result['type']);
+                $result['avatar'] = $indexClass::getAvatar($result);
+                ?>
                 <p class="avatar"><?= $result['avatar'] ?></p>
                 <a href="<?= URLHelper::getURL($result['link']) ?>"><?= htmlReady($result['title']) ?></a>
                 <?= $this->search->getInfo($result, $this->search->query) ?>
