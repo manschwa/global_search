@@ -12,22 +12,22 @@ class GlobaleSuchePlugin extends StudIPPlugin implements SystemPlugin {
         $this->setupAutoload();
         $navigation = new AutoNavigation(_('Globale Suche'));
         $navigation->setURL(PluginEngine::GetURL($this, array(), 'show/index'));
-        
+
         //Insert even before courses search
         Navigation::insertItem('/search/suche', $navigation, 'courses');
-        
+
         // Take over search button
         Navigation::getItem('/search')->setURL(PluginEngine::GetURL($this, array(), 'show/index'));
-        
-        PageLayout::addStylesheet($this->getPluginURL() . '/assets/intelligentsearch.css');
-        PageLayout::addScript($this->getPluginURL() . '/assets/intelligentsearch.js');
+
+        PageLayout::addStylesheet($this->getPluginURL() . '/assets/globalsearch.css');
+        PageLayout::addScript($this->getPluginURL() . '/assets/globalsearch.js');
 
         // Quicksearchhook
         PageLayout::addBodyElements(QuickSearch::get("seminar", new GlobalSearch())
                 ->setAttributes(array("placeholder" => _(Suchen)))
-                ->setInputClass("quicksearchbox intelligentsearch")
-                ->fireJSFunctionOnSelect('function (loc, name) {window.location = STUDIP.URLHelper.getURL("plugins.php/intelligentesucheplugin/show/open/"+loc)}')
+                ->setInputClass("quicksearchbox globalsearch")
                 ->render());
+
         // Notifications for Users
         NotificationCenter::addObserver(new IndexObject_User, "insert", "UserDidCreate");
         NotificationCenter::addObserver(new IndexObject_User, "update", "UserDidUpdate");

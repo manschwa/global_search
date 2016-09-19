@@ -7,7 +7,7 @@ class GlobaleSucheCronjob extends CronJob {
     }
 
     public static function getDescription() {
-        return _('Aktualisiert den Suchindex der intelligenten Suche');
+        return _('Aktualisiert den Suchindex der globalen Suche');
     }
 
     public static function getParameters() {

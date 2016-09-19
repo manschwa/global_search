@@ -7,14 +7,14 @@ $(document).ready(function() {
         quicksearch.children().remove();
 
         // Add new quicksearch
-        quicksearch.prepend($('.intelligentsearch').keypress(function(event) {
+        quicksearch.prepend($('.globalsearch').keypress(function(event) {
             var keycode = (event.keyCode ? event.keyCode : event.which);
             if (keycode == '13') {
                 event.preventDefault();
-                var params = {'search': $('.intelligentsearch').val(),
+                var params = {'search': $('.globalsearch').val(),
                     'utf8': true
                 };
-                window.location = STUDIP.URLHelper.getURL('plugins.php/intelligentesucheplugin/show/index', params);
+                window.location = STUDIP.URLHelper.getURL('plugins.php/globalesucheplugin/show/index', params);
             }
         }).show());
     }

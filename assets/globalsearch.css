@@ -38,15 +38,15 @@ section.search_results article p.avatar img.original {
   width: 32px;
   height: 32px;
 }
-.intelligentsearch {
+.globalsearch {
   display: none;
 }
 div.pagination {
   font-size: 1.4em;
-  padding: 5px 0 5px 0;
+  padding: 0.3em 0 0.3em 0;
 }
 div.pagination a.current {
   background-color: #e7ebf1;
   font-weight: bold;
-  padding: 5px 5px 5px 8px;
+  padding: 0.3em 0.23em 0.3em 0.4em;
 }

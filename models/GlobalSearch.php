@@ -168,6 +168,9 @@ class GlobalSearch extends SearchType {
     }
 
     /**
+     * If a given search string provides a person as a result, this query finds the
+     * Seminars where this person is the lecturer (status = 'dozent').
+     *
      * @param $search_params
      * @return string
      */
@@ -189,6 +192,9 @@ class GlobalSearch extends SearchType {
     }
 
     /**
+     * If a given search string provides a person as a result, this query finds the
+     * Forumentries where this person is the author.
+     *
      * @param $search_params
      * @return string
      */
@@ -208,6 +214,9 @@ class GlobalSearch extends SearchType {
     }
 
     /**
+     * If a given search string provides a person as a result, this query finds the
+     * Forumentries where this person is the uploader.
+     *
      * @param $search_params
      * @return string
      */
@@ -227,6 +236,8 @@ class GlobalSearch extends SearchType {
     }
 
     /**
+     * Provides the user_id (for a specific query) for further use in other queries.
+     *
      * @return string
      */
     private function getUserIdsForQuery()
@@ -238,6 +249,8 @@ class GlobalSearch extends SearchType {
     }
 
     /**
+     * Returns the condition queries for each IndexObject. Is just called if no type/category is chosen.
+     *
      * @return int|string
      */
     public function buildWhere()
@@ -245,23 +258,20 @@ class GlobalSearch extends SearchType {
         if ($GLOBALS['perm']->have_perm('root')) {
             return '';
         }
-        foreach (glob(__DIR__ . '/IndexObject_*') as $indexFile) {
-            $indexClass = basename($indexFile, ".php");
+        foreach ($this->getIndexObjectTypes() as $type) {
+            $indexClass = $this->getClass($type);
             $indexObject = new $indexClass;
-            $typename = explode('_', $indexClass);
-            $typename = strtolower($typename[1]);
             if ($indexObject->getCondition()) {
-                //TODO delete the 'AND' here and add it in the IndexObjects
-                $condititions[] = " (search_object.type = '$typename' AND " . $indexObject->getCondition() . ") ";
+                $condititions[] = " (search_object.type = '$type' AND " . $indexObject->getCondition() . ") ";
             } else {
-                $condititions[] = " (search_object.type = '$typename') ";
+                $condititions[] = " (search_object.type = '$type') ";
             }
         }
         return ' AND (' . join(' OR ', $condititions) . ') ';
     }
 
     /**
-     * Retruns the active filter options for the given category type chosen by the user.
+     * Returns the active filter options for the given category type chosen by the user.
      *
      * @return array containing only the checked/active filters for the given category.
      */
@@ -277,6 +287,9 @@ class GlobalSearch extends SearchType {
     }
 
     /**
+     * Get all IndexObject_'types' which should be searchable/found by a user
+     * and return them in an array.
+     *
      * @return array
      */
     public function getIndexObjectTypes()
@@ -292,6 +305,8 @@ class GlobalSearch extends SearchType {
     }
 
     /**
+     * Returns the class name of a given type.
+     *
      * @param $type
      * @return string
      */
@@ -301,6 +316,9 @@ class GlobalSearch extends SearchType {
     }
 
     /**
+     * Returns the part of the indexed text (table search_index) which contains the
+     * search query and highlights it for the html output.
+     *
      * @param $object
      * @param $query
      * @return mixed
@@ -398,6 +416,9 @@ class GlobalSearch extends SearchType {
     }
 
     /**
+     * Finds the position of the search query in the respective indexed text
+     * (table: search_index) so it can be highlighted correctly.
+     *
      * @param $words
      * @param $text
      * @return int

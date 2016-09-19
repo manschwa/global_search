@@ -2,6 +2,10 @@
 
 class ShowController extends StudipController
 {
+    /**
+     * ShowController constructor.
+     * @param $dispatcher
+     */
     public function __construct($dispatcher)
     {
         parent::__construct($dispatcher);
@@ -9,6 +13,13 @@ class ShowController extends StudipController
         $this->search = new GlobalSearch();
     }
 
+    /**
+     * Checks if a new search was initiated.
+     *
+     * @param $action
+     * @param $args
+     * @return bool|void
+     */
     public function before_filter(&$action, &$args)
     {
         $this->set_layout($GLOBALS['template_factory']->open('layouts/base'));
@@ -22,6 +33,9 @@ class ShowController extends StudipController
         }
     }
 
+    /**
+     * Checks if the 'reset'-button was pressed and adds the Sidebar.
+     */
     public function index_action()
     {
         if (Request::submitted('reset')) {
@@ -30,6 +44,12 @@ class ShowController extends StudipController
         $this->addSearchSidebar();
     }
 
+    /**
+     * This action is called upon initial plugin install. It starts the indexing of the database
+     * and creates/fills the search_index and search_object tables.
+     *
+     * @param null $restriction
+     */
     public function indexing_action($restriction = null)
     {
         $GLOBALS['perm']->check('root');
@@ -37,61 +57,45 @@ class ShowController extends StudipController
         $this->redirect($this->url_for('show/index?search=' . $_SESSION['global_search']['query']));
     }
 
-    public function open_action($id) {
-        $stmt = DBManager::get()->prepare('SELECT * FROM search_object WHERE object_id = ? LIMIT 1');
-        $stmt->execute(array($id));
-        $location = $GLOBALS['ABSOLUTE_URI_STUDIP'].GlobalSearch::getLink($stmt->fetch(PDO::FETCH_ASSOC));
-        header("location: $location");die;
-    }
-
     /**
-     *
+     * Adds the Sidebar containing the categories and their optional filters.
      */
     private function addSearchSidebar()
     {
         $sidebar = Sidebar::get();
         $sidebar->setImage('sidebar/search-sidebar.png');
 
+        // add the semester filter on the top level
+        // or the category-filter for a chosen category
         if ($type = $_SESSION['global_search']['category']) {
             $class = $this->search->getClass($type);
             $object = new $class;
-            $facets_widget = $this->getFacetsWidget($object);
+            $filter_widget = $this->getFacetsWidget($object);
         } else {
-            $facets_widget = $this->getSemesterFilterWidget();
+            $filter_widget = $this->getSemesterFilterWidget();
         }
 
+        // initiate the search
         if ($_SESSION['global_search']['query'] || $_SESSION['global_search']['category']) {
             $this->search->query($_SESSION['global_search']['query'], $this->getCategoryFilter());
         }
 
+        // display categories and (their optional) filters
         $category_widget = $this->getCategoryWidget();
         $sidebar->addWidget($category_widget);
-        if ($facets_widget) {
-            $sidebar->addWidget($facets_widget);
+        if ($filter_widget) {
+            $sidebar->addWidget($filter_widget);
         }
 
-        // Root may update index
-        $stmt = DBManager::get()->prepare("SELECT 1 FROM blubber LIMIT 1");
-        $stmt->execute();
-        if ($GLOBALS['perm']->have_perm('root')
-            || $GLOBALS['perm']->have_perm('admin') && $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $actions = new ActionsWidget();
-            $actions->addLink(_('Indizieren'),
-                $this->url_for('show/indexing'),
-                null,
-                array('onclick' => sprintf('return confirm(\'%s\');', _('Wirklich die komplette Datenbank indizieren? Diese Aktion kann lange dauern.'))))->asDialog(false);
-            $sidebar->addWidget($actions);
-        }
-
-        // On develop display runtime
-        if (Studip\ENV == 'development' && $this->search->time && $GLOBALS['perm']->have_perm('admin')) {
+        // display runtime
+        if ($this->search->time && $GLOBALS['perm']->have_perm('admin')) {
             $sidebar->addWidget($this->getRuntimeWidget());
         }
     }
 
     /**
      * Build a LinksWidget for the sidebar to filter out a specific category from your search results.
-     * There should only be one category selected at a time.
+     * There can only be one category selected at a time.
      *
      * @return LinksWidget containing all categories included in the search result.
      */
@@ -119,7 +123,10 @@ class ShowController extends StudipController
     }
 
     /**
-     * @param $type string
+     * Composes a link to filter for a given category ($type).
+     *
+     * @param $type string: the category
+     * @param $object IndexObject to get the correct type
      * @return LinkElement
      */
     private function categoryLink($type, $object)
@@ -173,6 +180,13 @@ class ShowController extends StudipController
         return $options_widget;
     }
 
+    /**
+     * This is kind of an extra filter which is not bound to any category/type.
+     * This semester filter is visible on the top level and will be propagated
+     * to semester-sensitive categories.
+     *
+     * @return OptionsWidget
+     */
     private function getSemesterFilterWidget()
     {
         $options_widget = new OptionsWidget;
@@ -190,6 +204,12 @@ class ShowController extends StudipController
         return $options_widget;
     }
 
+    /**
+     * Generates a SidebarWidget to display the time needed to find the search results.
+     * It's only visible for root or in develop mode.
+     *
+     * @return SidebarWidget
+     */
     private function getRuntimeWidget()
     {
         $runtime_widget = new SidebarWidget();
@@ -285,7 +305,12 @@ class ShowController extends StudipController
         $_SESSION['global_search']['category'] = null;
     }
 
-    // customized #url_for-method for plugins
+    /**
+     * Customized #url_for-method for plugins.
+     *
+     * @param string $to
+     * @return a valid URL
+     */
     public function url_for($to = '')
     {
         $args = func_get_args();

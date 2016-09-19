@@ -50,7 +50,7 @@ class IndexObject_Seminar extends IndexObject
     public static function getAvatar($object)
     {
         $course = Course::find($object['range_id']);
-        if ($course['status'] == 99) {
+        if ($course->getSemClass()->offsetGet('studygroup_mode')) {
             return StudygroupAvatar::getAvatar($object['range_id'])->getImageTag(Avatar::MEDIUM);
         } else {
             return CourseAvatar::getAvatar($object['range_id'])->getImageTag(Avatar::MEDIUM);
