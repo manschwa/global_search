@@ -400,7 +400,7 @@ class GlobalSearch extends SearchType {
     public function getPages($current = 0)
     {
         $minimum = max(0, $current - ($this->pages_shown / 2));
-        $maximum = $current <= ($this->pages_shown / 2) ?
+        $maximum = $current <= ($this->pages_shown / 2) - 1 ?
             min($this->pages_shown - 1 , $this->countResultPages() - 1) :
             min($current + ($this->pages_shown / 2), $this->countResultPages() - 1);
         return range($minimum, $maximum);
