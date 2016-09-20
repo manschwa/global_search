@@ -48,5 +48,5 @@ div.pagination {
 div.pagination a.current {
   background-color: #e7ebf1;
   font-weight: bold;
-  padding: 0.3em 0.23em 0.3em 0.4em;
+  padding: 0.3em 0.4em 0.3em 0.4em;
 }
