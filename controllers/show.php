@@ -103,13 +103,20 @@ class ShowController extends StudipController
     {
         $category_widget = new LinksWidget();
         $result_count = $this->search->count ? " ({$this->search->count})" : '';
-        $category_widget->setTitle(_('Ergebnisse') . $result_count);
+        $category_widget->setTitle(_('Ergebnisse'));
 
-        // offer a reset options only if there is a category selected
-        if ($this->getCategoryFilter()) {
-            $reset_element = new LinkElement(_('Auswahl aufheben'), $this->url_for('show/reset_category_filter'));
-            $category_widget->addElement($reset_element);
+        // offer a reset option or a 'show all results' option
+        if ($this->search->query) {
+            $link_name = _('Alle Ergebnisse') . ($this->getCategoryFilter() ? '' : $result_count);
+        } elseif ($this->getCategoryFilter()) {
+            $link_name = _('Auswahl aufheben');
         }
+        $reset_element = new LinkElement($link_name,
+            $this->url_for('show/reset_category_filter'),
+            ($this->getCategoryFilter() ? Icon::create('arr_2left') : Icon::create('arr_1right')),
+            ($this->getCategoryFilter() ? '' : array('class' => 'highlighted')));
+        $category_widget->addElement($reset_element);
+
         // list all possible categories as Links
         $index_object_types = $this->search->getIndexObjectTypes();
         foreach ($index_object_types as $type) {
@@ -131,10 +138,11 @@ class ShowController extends StudipController
      */
     private function categoryLink($type, $object)
     {
-        $facet_count = $this->search->resultTypes[$type] ? " ({$this->search->resultTypes[$type]})" : '';
+        $facet_count = ($this->search->resultTypes[$type] ? " ({$this->search->resultTypes[$type]})" : '');
         return new LinkElement($object::getStaticType() . $facet_count,
             $this->url_for('show/set_category_filter/' . $type),
-            $_SESSION['global_search']['category'] === $type ? Icon::create('arr_1right') : '');
+            ($this->getCategoryFilter() === $type ? Icon::create('arr_1right') : ''),
+            ($this->getCategoryFilter() === $type ? array('class' => 'highlighted') : ''));
     }
 
     /**

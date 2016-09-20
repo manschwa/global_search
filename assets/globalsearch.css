@@ -38,6 +38,9 @@ section.search_results article p.avatar img.original {
   width: 32px;
   height: 32px;
 }
+a.highlighted {
+  font-weight: bold;
+}
 .globalsearch {
   display: none;
 }
