@@ -498,4 +498,12 @@ class GlobalSearch extends SearchType {
     {
         return $this->results;
     }
+
+    /**
+     * @return int
+     */
+    public function getPagesShown()
+    {
+        return $this->pages_shown;
+    }
 }
