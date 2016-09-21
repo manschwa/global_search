@@ -6,7 +6,7 @@
  * User: manschwa
  * Date: 22.06.16
  */
-abstract class IndexObject
+class IndexObject
 {
     // column names in the search_index and search_object table
     const OBJECT_ID = 'object_id';
@@ -24,9 +24,6 @@ abstract class IndexObject
     protected $selects;
     /** @var  array with facet-filters (checkboxes) */
     protected $facets;
-
-    abstract public function __construct();
-    abstract public function sqlIndex();
 
     /**
      * Method to get the right select filter name for the $SESSION variable in one place.

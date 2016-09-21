@@ -7,12 +7,19 @@ class IndexObject_Forumentry extends IndexObject
     const RATING_FORUMAUTHOR = 0.7;
     const RATING_FORUMENTRY_TITLE = 0.75;
 
+    /**
+     * IndexObject_Forumentry constructor.
+     */
     public function __construct()
     {
         $this->setName(_('Forumeinträge'));
         $this->setSelects($this->getSelectFilters());
     }
 
+    /**
+     * Fills the 'search_object' and 'search_index' tables with forumentry
+     * specific information.
+     */
     public function sqlIndex()
     {
         IndexManager::createObjects("SELECT topic_id, 'forumentry', CONCAT(seminare.name, ': ', COALESCE(NULLIF(TRIM(forum_entries.name), ''), '" . _('Forumeintrag') . "')), seminar_id, null FROM forum_entries JOIN seminare USING (seminar_id) WHERE seminar_id != topic_id");
@@ -21,6 +28,9 @@ class IndexObject_Forumentry extends IndexObject
     }
 
     /**
+     * Determines which filters should be shown if the type 'forumentry'
+     * is selected.
+     *
      * @return array
      */
     public function getSelectFilters()
@@ -34,39 +44,72 @@ class IndexObject_Forumentry extends IndexObject
     }
 
     /**
+     * Builds and returns an associative array containing SQL-snippets
+     * ('joins' and 'conditions') for the different forumentry filter options.
+     *
      * @return array
      */
     public function getSearchParams()
     {
+
+        $seminar = $_SESSION['global_search']['selects'][$this->getSelectName('seminar')];
+        $semester = $_SESSION['global_search']['selects'][$this->getSelectName('semester')];
+
         $search_params = array();
         $search_params['joins']     = ' LEFT JOIN forum_entries ON forum_entries.topic_id = search_object.range_id '
                                     . ' LEFT JOIN seminare ON seminare.Seminar_id = forum_entries.seminar_id ';
-        $search_params['conditions'] = ($_SESSION['global_search']['selects'][$this->getSelectName('seminar')] ? (" AND seminare.Seminar_id ='" . $_SESSION['global_search']['selects'][$this->getSelectName('seminar')] . "' ") : ' ')
-                                     . ($_SESSION['global_search']['selects'][$this->getSelectName('semester')] ? (" AND seminare.start_time ='" . $_SESSION['global_search']['selects'][$this->getSelectName('semester')] . "' ") : ' ');
+        $search_params['conditions'] = ($seminar ? (" AND seminare.Seminar_id ='" . $seminar . "' ") : ' ')
+                                     . ($semester ? (" AND seminare.start_time ='" . $semester . "' ") : ' ');
         return $search_params;
     }
 
-    public static function getLink($object)
-    {
-        return "plugins.php/coreforum/index/index/{$object['range_id']}?cid={$object['range2']}";
-    }
-
-    public static function getType()
-    {
-        return _('Forumeinträge');
-    }
-
+    /**
+     * Gets an additional condition if the user is not root.
+     * You only can see forumentries from seminars you are a part of.
+     *
+     * @return string
+     */
     public function getCondition()
     {
         return " (EXISTS (SELECT 1 FROM seminar_user WHERE Seminar_id = range2 AND user_id = '{$GLOBALS['user']->id}')) ";
     }
 
+    /**
+     * Retruns a link to the found forumentry for the result presentation.
+     *
+     * @param $object PDO
+     * @return string link
+     */
+    public static function getLink($object)
+    {
+        return "plugins.php/coreforum/index/index/{$object['range_id']}?cid={$object['range2']}";
+    }
+
+    /**
+     * Name of this IndexObject which is presented to the user.
+     *
+     * @return string
+     */
+    public static function getType()
+    {
+        return _('Forumeinträge');
+    }
+
+    /**
+     * Returns an avatar representing a forumentry.
+     *
+     * @param $object
+     * @return Icon
+     */
     public static function getAvatar($object)
     {
         return Icon::create('forum', array('class' => "original"));
     }
 
     /**
+     * If a new forumentry is uploaded/created, it will be inserted into
+     * the 'search_object' and 'search_index' tables.
+     *
      * @param $event
      * @param $topic_id
      */
@@ -87,6 +130,9 @@ class IndexObject_Forumentry extends IndexObject
     }
 
     /**
+     * If an existing forumentry is being edited, it will be deleted and
+     * re-inserted into the 'search_object' and 'search_index' tables.
+     *
      * @param $event
      * @param $topic_id
      */
@@ -97,6 +143,9 @@ class IndexObject_Forumentry extends IndexObject
     }
 
     /**
+     * If an existing forumentry is deleted, it will be deleted from
+     * the 'search_object' and 'search_index' tables.
+     *
      * @param $event
      * @param $topic_id
      */

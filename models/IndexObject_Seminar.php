@@ -6,13 +6,20 @@ class IndexObject_Seminar extends IndexObject
     const RATING_SEMINAR_DOZENT = 0.75;
     const RATING_SEMINAR_SUBTITLE = 0.7;
     const RATING_SEMINAR_OTHER = 0.6;
-    public $ary = array();
+
+    /**
+     * IndexObject_Seminar constructor.
+     */
     public function __construct()
     {
         $this->setName(_('Veranstaltungen'));
         $this->setSelects($this->getSelectFilters());
     }
 
+    /**
+     * Fills the 'search_object' and 'search_index' tables with seminar
+     * specific information.
+     */
     public function sqlIndex() {
         IndexManager::createObjects("SELECT seminar_id, 'seminar', CONCAT(s.name, ' ', '(', sd.name, ')'), null,null FROM seminare s JOIN semester_data sd ON s.start_time BETWEEN sd.beginn AND sd.ende");
         IndexManager::log("Seminar objects created");
@@ -26,48 +33,10 @@ class IndexObject_Seminar extends IndexObject
         IndexManager::log("Indexed other");
     }
 
-    public static function getLink($object) {
-        if ($GLOBALS['perm']->have_perm('admin')) {
-            return "dispatch.php/course/overview?cid={$object['range_id']}";
-        } else {
-            return "dispatch.php/course/details/?sem_id={$object['range_id']}";
-        }
-    }
-
-    public static function getType()
-    {
-        return _('Veranstatltungen');
-    }
-
-    public static function getAvatar($object)
-    {
-        $course = Course::find($object['range_id']);
-        if ($course->getSemClass()->offsetGet('studygroup_mode')) {
-            return StudygroupAvatar::getAvatar($object['range_id'])->getImageTag(Avatar::MEDIUM);
-        } else {
-            return CourseAvatar::getAvatar($object['range_id'])->getImageTag(Avatar::MEDIUM);
-        }
-    }
-
-    public function getCondition() {
-        return " (EXISTS (SELECT 1 FROM seminare WHERE Seminar_id = search_object.range_id AND visible = 1) OR EXISTS (SELECT 1 FROM seminar_user WHERE Seminar_id = search_object.range_id AND user_id = '{$GLOBALS['user']->id}'))";
-    }
-
     /**
-     * @return array
-     */
-    public function getSearchParams()
-    {
-        $search_params = array();
-        $search_params['joins']     = ' LEFT JOIN seminare ON seminare.Seminar_id = search_object.range_id '
-                                    . ' LEFT JOIN seminar_inst ON  seminar_inst.seminar_id = search_object.range_id ';
-        $search_params['conditions'] = ($_SESSION['global_search']['selects'][$this->getSelectName('semester')] ? (" AND seminare.start_time ='" . $_SESSION['global_search']['selects'][$this->getSelectName('semester')] . "' ") : ' ')
-                                     . ($_SESSION['global_search']['selects'][$this->getSelectName('institute')] ? (" AND seminar_inst.institut_id IN ('" . $this->getInstituteString() . "') ") : ' ')
-                                     . ($_SESSION['global_search']['selects'][$this->getSelectName('sem_class')] ? (" AND seminare.status  IN ('" . $this->getSemClassString() . "') ") : ' ');
-        return $search_params;
-    }
-
-    /**
+     * Determines which filters should be shown if the type 'seminar'
+     * is selected.
+     *
      * @return array
      */
     public function getSelectFilters()
@@ -80,23 +49,83 @@ class IndexObject_Seminar extends IndexObject
     }
 
     /**
+     * Builds and returns an associative array containing SQL-snippets
+     * ('joins' and 'conditions') for the different seminar filter options.
+     *
      * @return array
      */
-    public function getSemtree()
+    public function getSearchParams()
     {
-        $institutes = array();
-        $statement = DBManager::get()->prepare("SELECT Institut_id, Name FROM Institute");
-        $statement->execute();
+        $semester = $_SESSION['global_search']['selects'][$this->getSelectName('semester')];
+        $institute = $_SESSION['global_search']['selects'][$this->getSelectName('institute')];
+        $sem_class = $_SESSION['global_search']['selects'][$this->getSelectName('sem_class')];
 
-        $institutes[''] = _('Alle Einrichtungen');
-        while ($object = $statement->fetch(PDO::FETCH_ASSOC)) {
-            $institutes[$object['Institut_id']] = $object['Name'];
-        }
-        krsort($institutes);
-        return $institutes;
+        $search_params = array();
+        $search_params['joins']     = ' LEFT JOIN seminare ON seminare.Seminar_id = search_object.range_id '
+                                    . ' LEFT JOIN seminar_inst ON  seminar_inst.seminar_id = search_object.range_id ';
+        $search_params['conditions'] = ($semester ? (" AND (seminare.start_time <= '" . $semester . "' AND ('" . $semester . "' <= (seminare.start_time + seminare.duration_time) OR seminare.duration_time = '-1')) ") : ' ')
+                                     . ($institute ? (" AND seminar_inst.institut_id IN ('" . $this->getInstituteString() . "') ") : ' ')
+                                     . ($sem_class ? (" AND seminare.status  IN ('" . $this->getSemClassString() . "') ") : ' ');
+        return $search_params;
     }
 
     /**
+     * Gets an additional condition if the user is not root.
+     * You only can see seminars you are a part of or seminars
+     * that are globally visible.
+     *
+     * @return string
+     */
+    public function getCondition() {
+        return " (EXISTS (SELECT 1 FROM seminare WHERE Seminar_id = search_object.range_id AND visible = 1) OR EXISTS (SELECT 1 FROM seminar_user WHERE Seminar_id = search_object.range_id AND user_id = '{$GLOBALS['user']->id}'))";
+    }
+
+    /**
+     * Retruns a link to the found seminar for the result presentation
+     * depending on your role/rights.
+     *
+     * @param $object PDO
+     * @return string link
+     */
+    public static function getLink($object) {
+        if ($GLOBALS['perm']->have_perm('admin')) {
+            return "dispatch.php/course/overview?cid={$object['range_id']}";
+        } else {
+            return "dispatch.php/course/details/?sem_id={$object['range_id']}";
+        }
+    }
+
+    /**
+     * Name of this IndexObject which is presented to the user.
+     *
+     * @return string
+     */
+    public static function getType()
+    {
+        return _('Veranstatltungen');
+    }
+
+    /**
+     * Returns an avatar representing the seminar or, if it's a studygroup,
+     * the studygroup.
+     *
+     * @param $object
+     * @return Icon
+     */
+    public static function getAvatar($object)
+    {
+        $course = Course::find($object['range_id']);
+        if ($course->getSemClass()->offsetGet('studygroup_mode')) {
+            return StudygroupAvatar::getAvatar($object['range_id'])->getImageTag(Avatar::MEDIUM);
+        } else {
+            return CourseAvatar::getAvatar($object['range_id'])->getImageTag(Avatar::MEDIUM);
+        }
+    }
+
+    /**
+     * If a new seminar is created, it will be inserted into
+     * the 'search_object' and 'search_index' tables.
+     *
      * @param $event
      * @param $seminar
      */
@@ -126,6 +155,9 @@ class IndexObject_Seminar extends IndexObject
     }
 
     /**
+     * If an existing seminar is being edited, it will be deleted and
+     * re-inserted into the 'search_object' and 'search_index' tables.
+     *
      * @param $event
      * @param $seminar
      */
@@ -136,6 +168,9 @@ class IndexObject_Seminar extends IndexObject
     }
 
     /**
+     * If an existing seminar is deleted, it will be deleted from
+     * the 'search_object' and 'search_index' tables.
+     *
      * @param $event
      * @param $seminar
      */
@@ -147,22 +182,5 @@ class IndexObject_Seminar extends IndexObject
 
         // delete from search_object
         $statement['object']->execute(array($seminar['seminar_id']));
-    }
-
-    /**
-     * @param $seminar_id
-     * @return string
-     */
-    protected function getLecturer($seminar_id)
-    {
-        $lecturers = array();
-        $stmt = DBManager::get()->prepare("SELECT a.Vorname, a.Nachname FROM auth_user_md5 a "
-            ." JOIN seminar_user su ON su.seminar_id = ?"
-            ." WHERE a.user_id = su.user_id AND su.status = 'dozent'");
-        $stmt->execute(array($seminar_id));
-        while ($lecturer_obj = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            array_push($lecturers, ($lecturer_obj['Vorname'] . ' ' . $lecturer_obj['Nachname']));
-        }
-        return $lecturers;
     }
 }

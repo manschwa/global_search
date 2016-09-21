@@ -5,33 +5,61 @@ class IndexObject_Institute extends IndexObject
 
     const RATING_INSTITUTE = 1.1;
 
+    /**
+     * IndexObject_Institute constructor.
+     */
     public function __construct()
     {
         $this->setName(_('Einrichtungen'));
     }
 
+    /**
+     * Fills the 'search_object' and 'search_index' tables with institute
+     * specific information.
+     */
     public function sqlIndex()
     {
         IndexManager::createObjects("SELECT Institut_id, 'institute', Name, null,null FROM Institute");
         IndexManager::createIndex("SELECT object_id, Name, " . self::RATING_INSTITUTE . " FROM Institute" . IndexManager::createJoin('Institut_id') . " WHERE Name != ''");
     }
 
+    /**
+     * Retruns a link to the found institute for the result presentation.
+     *
+     * @param $object PDO
+     * @return string link
+     */
     public static function getLink($object)
     {
         return "dispatch.php/institute/overview?cid={$object['range_id']}";
     }
 
+    /**
+     * Name of this IndexObject which is presented to the user.
+     *
+     * @return string
+     */
     public static function getType()
     {
         return _('Einrichtungen');
     }
 
+    /**
+     * Returns an avatar representing the institute
+     * (generic or institute specific).
+     *
+     * @param $object
+     * @return Icon
+     */
     public static function getAvatar($object)
     {
         return InstituteAvatar::getAvatar($object['range_id'])->getImageTag(Avatar::MEDIUM);
     }
 
     /**
+     * If a new institute is uploaded/created, it will be inserted into
+     * the 'search_object' and 'search_index' tables.
+     *
      * @param $event
      * @param $institute
      */
@@ -49,6 +77,9 @@ class IndexObject_Institute extends IndexObject
     }
 
     /**
+     * If an existing institute is being edited, it will be updated
+     * in the 'search_object' and 'search_index' tables.
+     *
      * @param $event
      * @param $institute
      */
@@ -64,6 +95,9 @@ class IndexObject_Institute extends IndexObject
     }
 
     /**
+     * If an existing institute is deleted, it will be deleted from
+     * the 'search_object' and 'search_index' tables.
+     *
      * @param $event
      * @param $institute
      */

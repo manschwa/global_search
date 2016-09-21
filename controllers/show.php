@@ -199,7 +199,7 @@ class ShowController extends StudipController
     {
         $options_widget = new OptionsWidget;
         $options_widget->setTitle(_('Semesterfilter'));
-        $index_object = new IndexObject_Seminar();
+        $index_object = new IndexObject();
         $semesters = $index_object->getSemesters();
         $name = _('Semester');
         $selected = $_SESSION['global_search']['selects'][$name];

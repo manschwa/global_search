@@ -433,25 +433,6 @@ class GlobalSearch extends SearchType {
     }
 
     /**
-     * @param $input
-     * @return mixed
-     */
-    private function filterStopwords($input)
-    {
-        $new = $input;
-        foreach ($input as $key => $test) {
-            if (in_array($test, StopWords::getStopWords())) {
-                unset($new[$key]);
-                continue;
-            }
-        }
-        if ($new) {
-            return $new;
-        }
-        return $input;
-    }
-
-    /**
      * @return int
      */
     public function getCount()
