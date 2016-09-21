@@ -27,7 +27,6 @@ abstract class IndexObject
 
     abstract public function __construct();
     abstract public function sqlIndex();
-    abstract public function getLink($object);
 
     /**
      * Method to get the right select filter name for the $SESSION variable in one place.

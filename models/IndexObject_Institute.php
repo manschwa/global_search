@@ -16,17 +16,12 @@ class IndexObject_Institute extends IndexObject
         IndexManager::createIndex("SELECT object_id, Name, " . self::RATING_INSTITUTE . " FROM Institute" . IndexManager::createJoin('Institut_id') . " WHERE Name != ''");
     }
 
-    public function getLink($object)
+    public static function getLink($object)
     {
         return "dispatch.php/institute/overview?cid={$object['range_id']}";
     }
 
-    public static function getStaticLink($object)
-    {
-        return "dispatch.php/institute/overview?cid={$object['range_id']}";
-    }
-
-    public static function getStaticType()
+    public static function getType()
     {
         return _('Einrichtungen');
     }

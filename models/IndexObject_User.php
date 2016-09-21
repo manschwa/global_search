@@ -23,17 +23,12 @@ class IndexObject_User extends IndexObject
                 . " FROM auth_user_md5 JOIN user_info USING (user_id) JOIN search_object_temp ON (user_id = range_id)");
     }
 
-    public function getLink($object)
+    public static function getLink($object)
     {
         return 'dispatch.php/profile?username=' . $object['range2'];
     }
 
-    public static function getStaticLink($object)
-    {
-        return 'dispatch.php/profile?username=' . $object['range2'];
-    }
-
-    public static function getStaticType()
+    public static function getType()
     {
         return _('Personen');
     }

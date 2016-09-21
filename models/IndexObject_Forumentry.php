@@ -46,17 +46,12 @@ class IndexObject_Forumentry extends IndexObject
         return $search_params;
     }
 
-    public function getLink($object)
+    public static function getLink($object)
     {
         return "plugins.php/coreforum/index/index/{$object['range_id']}?cid={$object['range2']}";
     }
 
-    public static function getStaticLink($object)
-    {
-        return "plugins.php/coreforum/index/index/{$object['range_id']}?cid={$object['range2']}";
-    }
-
-    public static function getStaticType()
+    public static function getType()
     {
         return _('Forumeinträge');
     }

@@ -54,8 +54,8 @@ class GlobalSearch extends SearchType {
         while ($object = $statement->fetch(PDO::FETCH_ASSOC)) {
             if (!$this->category_filter || $object['type'] === $this->category_filter) {
                 $class = self::getClass($object['type']);
-                $object['name'] = $class::getStaticType();
-                $object['link'] = $class::getStaticLink($object);
+                $object['name'] = $class::getType();
+                $object['link'] = $class::getLink($object);
                 if (!$is_root && $object['type'] === 'document') {
                     $doc = StudipDocument::find($object['range_id']);
                 }

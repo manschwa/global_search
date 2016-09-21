@@ -19,17 +19,12 @@ class IndexObject_Document extends IndexObject
         IndexManager::createIndex("SELECT object_id, description, " . IndexManager::relevance(self::RATING_DOCUMENT_DESCRIPTION, 'dokumente.chdate') . " FROM dokumente" . IndexManager::createJoin('dokument_id'). " WHERE description != ''");
     }
 
-    public function getLink($object)
+    public static function getLink($object)
     {
         return "folder.php?cid={$object['range2']}&data[cmd]=tree&open={$object['range_id']}#anker";
     }
 
-    public static function getStaticLink($object)
-    {
-        return "folder.php?cid={$object['range2']}&data[cmd]=tree&open={$object['range_id']}#anker";
-    }
-
-    public static function getStaticType()
+    public static function getType()
     {
         return _('Dokumente');
     }

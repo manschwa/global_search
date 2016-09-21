@@ -26,7 +26,7 @@ class IndexObject_Seminar extends IndexObject
         IndexManager::log("Indexed other");
     }
 
-    public function getLink($object) {
+    public static function getLink($object) {
         if ($GLOBALS['perm']->have_perm('admin')) {
             return "dispatch.php/course/overview?cid={$object['range_id']}";
         } else {
@@ -34,15 +34,7 @@ class IndexObject_Seminar extends IndexObject
         }
     }
 
-    public static function getStaticLink($object) {
-        if ($GLOBALS['perm']->have_perm('admin')) {
-            return "dispatch.php/course/overview?cid={$object['range_id']}";
-        } else {
-            return "dispatch.php/course/details/?sem_id={$object['range_id']}";
-        }
-    }
-
-    public static function getStaticType()
+    public static function getType()
     {
         return _('Veranstatltungen');
     }
