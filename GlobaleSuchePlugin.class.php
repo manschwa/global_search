@@ -22,11 +22,11 @@ class GlobaleSuchePlugin extends StudIPPlugin implements SystemPlugin {
         PageLayout::addStylesheet($this->getPluginURL() . '/assets/globalsearch.css');
         PageLayout::addScript($this->getPluginURL() . '/assets/globalsearch.js');
 
-        // Quicksearchhook
-        PageLayout::addBodyElements(QuickSearch::get("seminar", new GlobalSearch())
-                ->setAttributes(array("placeholder" => _(Suchen)))
-                ->setInputClass("quicksearchbox globalsearch")
-                ->render());
+//        // Quicksearchhook
+//        PageLayout::addBodyElements(QuickSearch::get("seminar", new GlobalSearch())
+//                ->setAttributes(array("placeholder" => _(Suchen)))
+//                ->setInputClass("quicksearchbox globalsearch")
+//                ->render());
 
         // Notifications for Users
         NotificationCenter::addObserver(new IndexObject_User, "insert", "UserDidCreate");

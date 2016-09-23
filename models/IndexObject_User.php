@@ -23,11 +23,11 @@ class IndexObject_User extends IndexObject
      */
     public function sqlIndex()
     {
-        IndexManager::createObjects("SELECT user_id, 'user', CONCAT_WS(' ',title_front, Vorname, Nachname, title_rear), username, null FROM auth_user_md5 JOIN user_info USING (user_id)");
-        IndexManager::createIndex("SELECT object_id, CONCAT_WS(' ', Vorname, Nachname, "
+        IndexManager::createObjects("(SELECT user_id, 'user', CONCAT_WS(' ',title_front, Vorname, Nachname, title_rear), username, null FROM auth_user_md5 JOIN user_info USING (user_id))");
+        IndexManager::createIndex("(SELECT object_id, CONCAT_WS(' ', Vorname, Nachname, "
                 . "CONCAT('(', username, ')')), "
                 . self::RATING_USER." + LOG((SELECT avg(score) FROM user_info WHERE score != 0), score + 3) "
-                . " FROM auth_user_md5 JOIN user_info USING (user_id) JOIN search_object_temp ON (user_id = range_id)");
+                . " FROM auth_user_md5 JOIN user_info USING (user_id) JOIN search_object ON (user_id = range_id))");
     }
 
     /**
@@ -112,16 +112,21 @@ class IndexObject_User extends IndexObject
      */
     public function insert($event, $user)
     {
-        $statement = $this->getInsertStatement();
-
         // insert new User into search_object
         $type = 'user';
         $title = $user['title_front'] . ' ' . $user['vorname'] . ' ' . $user['nachname'] . ' ' . $user['title_rear'];
-        $statement['object']->execute(array($user['user_id'], $type, $title, $user['username'], null));
+        IndexManager::createObjects(" VALUES ('" . $user['user_id'] . "', '"
+            . $type . "', '"
+            . $title . "', '"
+            . $user['username'] . "', '"
+            . null . "') ");
 
         // insert new User into search_index
         $text = $title . ' (' . $user['username'] . ')';
-        $statement['index']->execute(array($user['user_id'], $text));
+        $object_id_query = IndexManager::getSearchObjectId($user['user_id']);
+        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $text . "', 0) ");
+        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $text . "', 0) ");
+
     }
 
     /**
@@ -146,12 +151,11 @@ class IndexObject_User extends IndexObject
      */
     public function delete($event, $user)
     {
-        $statement = $this->getDeleteStatement();
         // delete from search_index
-        $statement['index']->execute(array($user['user_id']));
+        IndexManager::deleteIndex($user['user_id']);
 
         // delete from search_object
-        $statement['object']->execute(array($user['user_id']));
+        IndexManager::deleteObjects($user['user_id']);
     }
 
 }

@@ -22,9 +22,9 @@ class IndexObject_Forumentry extends IndexObject
      */
     public function sqlIndex()
     {
-        IndexManager::createObjects("SELECT topic_id, 'forumentry', CONCAT(seminare.name, ': ', COALESCE(NULLIF(TRIM(forum_entries.name), ''), '" . _('Forumeintrag') . "')), seminar_id, null FROM forum_entries JOIN seminare USING (seminar_id) WHERE seminar_id != topic_id");
-        IndexManager::createIndex("SELECT object_id, name, " . IndexManager::relevance(self::RATING_FORUMENTRY_TITLE, 'forum_entries.chdate') . " FROM forum_entries" . IndexManager::createJoin('topic_id') . " WHERE name != ''");
-        IndexManager::createIndex("SELECT object_id, SUBSTRING_INDEX(content, '<admin_msg', 1), " . IndexManager::relevance(self::RATING_FORUMENTRY, 'forum_entries.chdate') . " FROM forum_entries" . IndexManager::createJoin('topic_id') . " WHERE content != ''");
+        IndexManager::createObjects("(SELECT topic_id, 'forumentry', CONCAT(seminare.name, ': ', COALESCE(NULLIF(TRIM(forum_entries.name), ''), '" . _('Forumeintrag') . "')), seminar_id, null FROM forum_entries JOIN seminare USING (seminar_id) WHERE seminar_id != topic_id)");
+        IndexManager::createIndex("(SELECT object_id, name, " . IndexManager::relevance(self::RATING_FORUMENTRY_TITLE, 'forum_entries.chdate') . " FROM forum_entries" . IndexManager::createJoin('topic_id') . " WHERE name != '')");
+        IndexManager::createIndex("(SELECT object_id, SUBSTRING_INDEX(content, '<admin_msg', 1), " . IndexManager::relevance(self::RATING_FORUMENTRY, 'forum_entries.chdate') . " FROM forum_entries" . IndexManager::createJoin('topic_id') . " WHERE content != '')");
     }
 
     /**
@@ -116,17 +116,21 @@ class IndexObject_Forumentry extends IndexObject
     public function insert($event, $topic_id)
     {
         $forumentry = ForumEntry::getEntry($topic_id);
-        $statement = $this->getInsertStatement();
 
         // insert new ForumEntry into search_object
         $type = 'forumentry';
         $seminar = Course::find($forumentry['seminar_id']);
         $title = $seminar['Name'] . ': ' . $forumentry['name'];
-        $statement['object']->execute(array($topic_id, $type, $title, $forumentry['seminar_id'], null));
+        IndexManager::createObjects(" VALUES ('" . $topic_id . "', '"
+            . $type . "', '"
+            . $title . "', '"
+            . $forumentry['seminar_id'] . "', '"
+            . null . "') ");
 
         // insert new ForumEntry into search_index
-        $statement['index']->execute(array($topic_id, $forumentry['name']));
-        $statement['index']->execute(array($topic_id, ForumEntry::killEdit($forumentry['content'])));
+        $object_id_query = IndexManager::getSearchObjectId($topic_id);
+        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $forumentry['name'] . "', " . IndexManager::relevance(self::RATING_FORUMENTRY_TITLE, $forumentry['chdate']) . " ) ");
+        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . ForumEntry::killEdit($forumentry['content']) . "', 0) ");
     }
 
     /**
@@ -145,17 +149,17 @@ class IndexObject_Forumentry extends IndexObject
     /**
      * If an existing forumentry is deleted, it will be deleted from
      * the 'search_object' and 'search_index' tables.
+     * NOTE: the order is important!
      *
      * @param $event
      * @param $topic_id
      */
     public function delete($event, $topic_id)
     {
-        $statement = $this->getDeleteStatement();
         // delete from search_index
-        $statement['index']->execute(array($topic_id));
+        IndexManager::deleteIndex($topic_id);
 
         // delete from search_object
-        $statement['object']->execute(array($topic_id));
+        IndexManager::deleteObjects($topic_id);
     }
 }

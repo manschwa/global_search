@@ -7,33 +7,42 @@
  *
  * @author      Nobody
  */
-class IndexManager {
+class IndexManager
+{
+
+    // column names in the search_index and search_object table
+    const OBJECT_ID = 'object_id';
+    const RANGE_ID = 'range_id';
+    const TYPE = 'type';
+    const TITLE = 'title';
+    const RANGE2 = 'range2';
+    const RANGE3 = 'range3';
+    const TEXT = 'text';
+    const RELEVANCE = 'relevance';
 
     public static $log;
     public static $current_file;
-    public static $db;
+//    public static $db;
 
-    public static function sqlIndex($restriction = null) {
+    public static function sqlIndex($restriction = null)
+    {
         set_time_limit(3600);
-        self::$db = DBManager::get();
+//        $db = DBManager::get();
         $time = time();
 
         self::log("### Indexing started");
 
         try {
 
-            // Purge DB
-            self::$db->query('DROP TABLE IF EXISTS search_object_temp,search_index_temp,search_object_old,search_index_old');
-            self::log("Database purged");
+//            // Purge DB
+//            self::$db->query('DROP TABLE IF EXISTS search_object_temp,search_index_temp,search_object_old,search_index_old');
+//            self::log("Database purged");
 
             // Create temporary tables
-            self::$db->query('CREATE TABLE search_object_temp LIKE search_object');
-            self::$db->query('CREATE TABLE search_index_temp LIKE search_index');
-            self::log("Temporary tables created");
+//            self::$db->query('CREATE TABLE search_object_temp LIKE search_object');
+//            self::$db->query('CREATE TABLE search_index_temp LIKE search_index');
+//            self::log("Temporary tables created");
 
-            // Make indexing a lot faster
-//            self::$db->query("ALTER TABLE search_index_temp DISABLE KEYS");
-//            self::log("Keys disabled");
             foreach (glob(__DIR__ . '/IndexObject_*') as $indexFile) {
                 $type = explode('_', $indexFile);
                 if (!$restriction || stripos(array_pop($type), $restriction) !== false) {
@@ -46,28 +55,25 @@ class IndexManager {
             }
             self::log("Finished indexing");
 
-            // Create searchindex
-//            self::$db->query("ALTER TABLE search_index_temp ENABLE KEYS");
-//            self::log("Keys enabled");
+//            // Create searchindex
+//            // Swap tables
+//            self::$db->query('RENAME TABLE '
+//                    . 'search_object TO search_object_old,'
+//                    . 'search_object_temp TO search_object,'
+//                    . 'search_index TO search_index_old,'
+//                    . 'search_index_temp TO search_index');
+//            self::log("Tables swapped");
 
-            // Swap tables
-            self::$db->query('RENAME TABLE '
-                    . 'search_object TO search_object_old,'
-                    . 'search_object_temp TO search_object,'
-                    . 'search_index TO search_index_old,'
-                    . 'search_index_temp TO search_index');
-            self::log("Tables swapped");
-
-            // Drop old index
-            self::$db->query('DROP TABLE search_object_old,search_index_old');
-            self::log("Old tables dropped");
+//            // Drop old index
+//            self::$db->query('DROP TABLE search_object_old,search_index_old');
+//            self::log("Old tables dropped");
 
             $runtime = time() - $time;
             self::log("FINISHED! Runtime: " . floor($runtime / 60) . ":" . ($runtime % 60));
 
             // Return runtime
             return $runtime;
-            
+
         // In case of mysql error imediately abort
         } catch (PDOException $e) {
             self::log("MySQL Error occured!");
@@ -77,33 +83,91 @@ class IndexManager {
     }
 
     /**
-     * Creates search objects with an sql select
-     * (range_id, type, title, link)
-     * 
-     * @param SQL SQL for the input
+     * Executes an insert-statement for the table search_object.
+     * It is uses as an 'INSERT ... SELECT' statement for the initial indexing
+     * and as an 'INSERT ... VALUES' statement for later IndexObject creation.
+     *
+     * @param $sql string: - '(SELECT ...)' for initial indexing
+     *                      - 'VALUES (...)' for later IndexObject creation
      */
-    public static function createObjects($sql) {
-        self::$db->query("INSERT INTO search_object_temp (range_id, type, title, range2, range3) ($sql)");
+    public static function createObjects($sql)
+    {
+        $stmt = DBManager::get()->prepare("INSERT INTO search_object ("
+            . self::RANGE_ID .", "
+            . self::TYPE . ", "
+            . self::TITLE .", "
+            . self::RANGE2 .", "
+            . self::RANGE3 .") "
+            . $sql );
+        $stmt->execute();
     }
 
-    public static function createIndex($sql) {
-        self::$db->query("INSERT INTO search_index_temp (object_id, text, relevance) ($sql)");
+    /**
+     * Executes an insert-statement for the table search_index.
+     * It is uses as an 'INSERT ... SELECT' statement for the initial indexing
+     * and as an 'INSERT ... VALUES' statement for later IndexObject creation.
+     *
+     * @param $sql string: - '(SELECT ...)' for initial indexing
+     *                      - 'VALUES (...)' for later IndexObject creation
+     */
+    public static function createIndex($sql)
+    {
+        $stmt = DBManager::get()->prepare("INSERT INTO search_index ("
+            . self::OBJECT_ID . ", "
+            . self::TEXT . ", "
+            . self::RELEVANCE .") "
+            . $sql);
+        $stmt->execute();
     }
 
-    public static function relevance($base, $modifier) {
-        return "pow( $base , ((UNIX_TIMESTAMP() - $modifier ) / 31556926)) as relevance";
+    /**
+     * Executes a delete-statement to delete the IndexObject from
+     * the table search_object.
+     *
+     * @param $object_id
+     */
+    public static function deleteObjects($object_id)
+    {
+        $stmt = DBManager::get()->prepare("DELETE FROM search_object "
+            ." WHERE range_id = '" . $object_id . "'");
+        $stmt->execute();
     }
 
-    public static function createJoin($on) {
-        return " JOIN search_object_temp ON (search_object_temp.range_id = $on) ";
+    /**
+     * Executes a delete-statement to delete the indexed information
+     * for respective IndexObject from the table search_object.
+     *
+     * @param $object_id
+     */
+    public static function deleteIndex($object_id)
+    {
+        $stmt = DBManager::get()->prepare("DELETE FROM search_index "
+            . " WHERE object_id = " . IndexManager::getSearchObjectId($object_id));
+        $stmt->execute();
+    }
+
+    public static function relevance($base, $modifier)
+    {
+        return "pow( $base , ((UNIX_TIMESTAMP() - $modifier ) / 31556926))";
+    }
+
+    public static function getSearchObjectId($object_id)
+    {
+        return " (SELECT object_id FROM search_object WHERE range_id = '" . $object_id . "') ";
+    }
+
+    public static function createJoin($on)
+    {
+        return " JOIN search_object ON (search_object.range_id = $on) ";
     }
 
     /**
      * Logs an indexing event in the index.log file
-     * 
+     *
      * @param type $info
      */
-    public static function log($info) {
+    public static function log($info)
+    {
         if (!self::$log) {
             Log::set('indexlog', dirname(__DIR__) . '/index.log');
             self::$log = Log::get('indexlog');

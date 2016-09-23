@@ -21,9 +21,9 @@ class IndexObject_Document extends IndexObject
      */
     public function sqlIndex()
     {
-        IndexManager::createObjects("SELECT dokument_id, 'document', CONCAT(seminare.name, ': ', COALESCE(NULLIF(TRIM(dokumente.name), ''), '" . _('Datei') . "')), seminar_id, range_id FROM dokumente JOIN seminare USING (seminar_id)");
-        IndexManager::createIndex("SELECT object_id, name, " . IndexManager::relevance(self::RATING_DOCUMENT_TITLE, 'dokumente.chdate') . " FROM dokumente" . IndexManager::createJoin('dokument_id') . " WHERE name != ''");
-        IndexManager::createIndex("SELECT object_id, description, " . IndexManager::relevance(self::RATING_DOCUMENT_DESCRIPTION, 'dokumente.chdate') . " FROM dokumente" . IndexManager::createJoin('dokument_id'). " WHERE description != ''");
+        IndexManager::createObjects("(SELECT dokument_id, 'document', CONCAT(seminare.name, ': ', COALESCE(NULLIF(TRIM(dokumente.name), ''), '" . _('Datei') . "')), seminar_id, range_id FROM dokumente JOIN seminare USING (seminar_id))");
+        IndexManager::createIndex("(SELECT object_id, name, " . IndexManager::relevance(self::RATING_DOCUMENT_TITLE, 'dokumente.chdate') . " FROM dokumente" . IndexManager::createJoin('dokument_id') . " WHERE name != '')");
+        IndexManager::createIndex("(SELECT object_id, description, " . IndexManager::relevance(self::RATING_DOCUMENT_DESCRIPTION, 'dokumente.chdate') . " FROM dokumente" . IndexManager::createJoin('dokument_id'). " WHERE description != '')");
     }
 
     /**
@@ -122,16 +122,20 @@ class IndexObject_Document extends IndexObject
      */
     public function insert($event, $document)
     {
-        $statement = $this->getInsertStatement();
         // insert new Document into search_object
         $type = 'document';
         $seminar = Course::find($document['seminar_id']);
         $title = $seminar['Name'] . ': ' . $document['name'];
-        $statement['object']->execute(array($document['dokument_id'], $type, $title, $document['seminar_id'], $document['range_id']));
+        IndexManager::createObjects(" VALUES ('" . $document['dokument_id'] . "', '"
+            . $type . "', '"
+            . $title . "', '"
+            . $document['seminar_id'] . "', '"
+            . $document['range_id'] . "') ");
 
         // insert new Document into search_index
-        $statement['index']->execute(array($document['dokument_id'], $document['name']));
-        $statement['index']->execute(array($document['dokument_id'], $document['description']));
+        $object_id_query = IndexManager::getSearchObjectId($document['dokument_id']);
+        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $document['name'] . "', 0) ");
+        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $document['description'] . "', 0) ");
     }
 
     /**
@@ -150,17 +154,17 @@ class IndexObject_Document extends IndexObject
     /**
      * If an existing document is deleted, it will be deleted from
      * the 'search_object' and 'search_index' tables.
+     * NOTE: the order is important!
      *
      * @param $event
      * @param $document
      */
     public function delete($event, $document)
     {
-        $statement = $this->getDeleteStatement();
         // delete from search_index
-        $statement['index']->execute(array($document['dokument_id']));
+        IndexManager::deleteIndex($document['dokument_id']);
 
         // delete from search_object
-        $statement['object']->execute(array($document['dokument_id']));
+        IndexManager::deleteObjects($document['dokument_id']);
     }
 }

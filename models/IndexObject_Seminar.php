@@ -21,15 +21,15 @@ class IndexObject_Seminar extends IndexObject
      * specific information.
      */
     public function sqlIndex() {
-        IndexManager::createObjects("SELECT seminar_id, 'seminar', CONCAT(s.name, ' ', '(', sd.name, ')'), null,null FROM seminare s JOIN semester_data sd ON s.start_time BETWEEN sd.beginn AND sd.ende");
+        IndexManager::createObjects("(SELECT seminar_id, 'seminar', CONCAT(s.name, ' ', '(', sd.name, ')'), null,null FROM seminare s JOIN semester_data sd ON s.start_time BETWEEN sd.beginn AND sd.ende)");
         IndexManager::log("Seminar objects created");
-        IndexManager::createIndex("SELECT object_id, CONCAT_WS(' ', Veranstaltungsnummer, Name), " . IndexManager::relevance(self::RATING_SEMINAR, 'start_time') . " FROM seminare JOIN search_object_temp ON (seminar_id = range_id)");
+        IndexManager::createIndex("(SELECT object_id, CONCAT_WS(' ', Veranstaltungsnummer, Name), " . IndexManager::relevance(self::RATING_SEMINAR, 'start_time') . " FROM seminare " . IndexManager::createJoin('seminar_id') . ")");
         IndexManager::log("Indexed name");
-        IndexManager::createIndex("SELECT object_id, Untertitel, " . IndexManager::relevance(self::RATING_SEMINAR_SUBTITLE, 'start_time') . " FROM seminare JOIN search_object_temp ON (seminar_id = range_id) WHERE Untertitel != ''");
+        IndexManager::createIndex("(SELECT object_id, Untertitel, " . IndexManager::relevance(self::RATING_SEMINAR_SUBTITLE, 'start_time') . " FROM seminare " . IndexManager::createJoin('seminar_id') . " WHERE Untertitel != '')");
         IndexManager::log("Indexed subtitle");
-        IndexManager::createIndex("SELECT object_id, Beschreibung, " . IndexManager::relevance(self::RATING_SEMINAR_OTHER, 'start_time') . " FROM seminare JOIN search_object_temp ON (seminar_id = range_id) WHERE Beschreibung != ''");
+        IndexManager::createIndex("(SELECT object_id, Beschreibung, " . IndexManager::relevance(self::RATING_SEMINAR_OTHER, 'start_time') . " FROM seminare " . IndexManager::createJoin('seminar_id') . " WHERE Beschreibung != '')");
         IndexManager::log("Indexed description");
-        IndexManager::createIndex("SELECT object_id, Sonstiges, " . IndexManager::relevance(self::RATING_SEMINAR_OTHER, 'start_time') . " FROM seminare JOIN search_object_temp ON (seminar_id = range_id) WHERE Sonstiges != ''");
+        IndexManager::createIndex("(SELECT object_id, Sonstiges, " . IndexManager::relevance(self::RATING_SEMINAR_OTHER, 'start_time') . " FROM seminare " . IndexManager::createJoin('seminar_id') . " WHERE Sonstiges != '')");
         IndexManager::log("Indexed other");
     }
 
@@ -131,26 +131,29 @@ class IndexObject_Seminar extends IndexObject
      */
     public function insert($event, $seminar)
     {
-        $statement = $this->getInsertStatement();
-
         // insert new Course into search_object
         $type = 'seminar';
         if ($name = $seminar['name']) {
             $semester = Semester::findByTimestamp($seminar['start_time']);
             $title = $seminar['name'] . ' (' . $semester['name'] . ')';
-            $statement['object']->execute(array($seminar['seminar_id'], $type, $title, null, null));
+            IndexManager::createObjects(" VALUES ('" . $seminar['seminar_id'] . "', '"
+                . $type . "', '"
+                . $title . "', '"
+                . null . "', '"
+                . null . "') ");
         }
 
         // insert new Course into search_index
+        $object_id_query = IndexManager::getSearchObjectId($seminar['seminar_id']);
         if ($name = $seminar['name']) {
             $index_title = $seminar['veranstaltungsnummer'] . ' ' . $name;
-            $statement['index']->execute(array($seminar['seminar_id'], $index_title));
+            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $index_title . "', 0) ");
         }
         if ($subtitle = $seminar['untertitel']) {
-            $statement['index']->execute(array($seminar['seminar_id'], $subtitle));
+            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $subtitle . "', 0) ");
         }
         if ($description = $seminar['beschreibung']) {
-            $statement['index']->execute(array($seminar['seminar_id'], $description));
+            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $description . "', 0) ");
         }
     }
 
@@ -170,17 +173,17 @@ class IndexObject_Seminar extends IndexObject
     /**
      * If an existing seminar is deleted, it will be deleted from
      * the 'search_object' and 'search_index' tables.
+     * NOTE: the order is important!
      *
      * @param $event
      * @param $seminar
      */
     public function delete($event, $seminar)
     {
-        $statement = $this->getDeleteStatement();
         // delete from search_index
-        $statement['index']->execute(array($seminar['seminar_id']));
+        IndexManager::deleteIndex($seminar['seminar_id']);
 
         // delete from search_object
-        $statement['object']->execute(array($seminar['seminar_id']));
+        IndexManager::deleteObjects($seminar['seminar_id']);
     }
 }

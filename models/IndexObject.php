@@ -8,16 +8,6 @@
  */
 class IndexObject
 {
-    // column names in the search_index and search_object table
-    const OBJECT_ID = 'object_id';
-    const RANGE_ID = 'range_id';
-    const TYPE = 'type';
-    const TITLE = 'title';
-    const RANGE2 = 'range2';
-    const RANGE3 = 'range3';
-    const TEXT = 'text';
-    const ID = 'id';
-
     /** @var  string object name */
     protected $name;
     /** @var  array with select-filters (dropdowns) */
@@ -271,66 +261,6 @@ class IndexObject
         } else {
             return 1;
         }
-    }
-
-    /**
-     * Returns a generic insert-statement for the tables search_index and search_object.
-     * The values are to be determined and added in the respective sub classes.
-     *
-     * @return array with strings containing insert-statements
-     */
-    public function getInsertStatement()
-    {
-        // insert new IndexObject into search_object
-        $statement['object'] = DBManager::get()->prepare("INSERT INTO search_object ("
-            . self::RANGE_ID .", " . self::TYPE . ", " . self::TITLE .", " . self::RANGE2 .", " . self::RANGE3 .") "
-            ." VALUES (?, ?, ?, ?, ?)");
-
-        // insert new IndexObject search_index
-        $statement['index'] = DBManager::get()->prepare("INSERT INTO search_index (" . self::OBJECT_ID . ", " .  self::TEXT .") "
-            ." VALUES ((SELECT object_id FROM search_object WHERE range_id = ?), ?)");
-
-        return $statement;
-    }
-
-    /**
-     * Returns a generic update-statement for the tables search_index and search_object.
-     * The values are to be determined and added in the respective sub classes.
-     *
-     * For the most part delete and insert is used instead of UPDATE.
-     *
-     * @return array with strings containing update-statements
-     */
-    public function getUpdateStatement()
-    {
-        // update search_object
-        $statement['object'] = DBManager::get()->prepare("UPDATE search_object SET title = ?"
-            . ", range2 = ?, range3 = ? WHERE range_id = ?");
-
-        // update search_index
-        $statement['index'] = DBManager::get()->prepare("UPDATE search_index SET text = ?"
-            ." WHERE object_id = (SELECT object_id FROM search_object WHERE range_id = ?)");
-
-        return $statement;
-    }
-
-    /**
-     * Returns a generic update-statement for the tables search_index and search_object.
-     * The values are to be determined and added in the respective sub classes.
-     *
-     * @return array with strings containing delete-statements
-     */
-    public function getDeleteStatement()
-    {
-        // delete from search_index
-        $statement['index'] = DBManager::get()->prepare("DELETE FROM search_index "
-            ." WHERE object_id = (SELECT object_id FROM search_object WHERE range_id = ?)");
-
-        // delete from search_object
-        $statement['object'] = DBManager::get()->prepare("DELETE FROM search_object "
-            ." WHERE range_id = ?");
-
-        return $statement;
     }
 
     /**
