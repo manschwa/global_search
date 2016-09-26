@@ -102,7 +102,7 @@ class IndexObject_Seminar extends IndexObject
      */
     public static function getType()
     {
-        return _('Veranstatltungen');
+        return _('Veranstaltungen');
     }
 
     /**
