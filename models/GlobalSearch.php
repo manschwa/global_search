@@ -96,9 +96,9 @@ class GlobalSearch extends SearchType {
                                     . " LEFT JOIN user_inst ON  user_inst.user_id = search_object.range_id ";
             $search_params['conditions'] = " AND (ds.start_time = " . $semester
                                          . " OR fs.start_time = " . $semester
-                                         . " OR seminare.start_time = " . $semester
+                                         . " OR (seminare.start_time <= '" . $semester . "' AND ('" . $semester . "' <= (seminare.start_time + seminare.duration_time) OR seminare.duration_time = '-1'))"
                                          . " OR type = 'user' OR type = 'institute') ";
-            $semester_condition['conditions'] = " AND seminare.start_time = $semester ";
+            $semester_condition['conditions'] = " AND (seminare.start_time <= '" . $semester . "' AND ('" . $semester . "' <= (seminare.start_time + seminare.duration_time) OR seminare.duration_time = '-1')) ";
         }
         $statement = DBManager::get()->prepare("SELECT search_object.*, text "
                 . " FROM search_object JOIN " . $search . " USING (object_id) " . $search_params['joins']
