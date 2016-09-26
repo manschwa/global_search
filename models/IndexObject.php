@@ -81,9 +81,13 @@ class IndexObject
     public function getSemesters()
     {
         // set current semester as selected
+        // considering the given SEMESTER_TIME_SWITCH in the CONFIG
+        // (n weeks before next semester)
         if (!$_SESSION['global_search']['selects']) {
-            $sem = Semester::findCurrent();
-            $_SESSION['global_search']['selects'][$this->getSelectName('semester')] = $sem['beginn'];
+            $sem_time_switch = Config::get()->getValue('SEMESTER_TIME_SWITCH');
+            $current_sem = Semester::findByTimestamp(time()
+                + $sem_time_switch * 7 * 24 * 3600);
+            $_SESSION['global_search']['selects'][$this->getSelectName('semester')] = $current_sem['beginn'];
         }
 
         $semesters = array();
