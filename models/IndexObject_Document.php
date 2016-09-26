@@ -21,7 +21,7 @@ class IndexObject_Document extends IndexObject
      */
     public function sqlIndex()
     {
-        IndexManager::createObjects("(SELECT dokument_id, 'document', CONCAT(seminare.name, ': ', COALESCE(NULLIF(TRIM(dokumente.name), ''), '" . _('Datei') . "')), seminar_id, range_id FROM dokumente JOIN seminare USING (seminar_id))");
+        IndexManager::createObjects("(SELECT dokument_id, 'document', COALESCE(NULLIF(TRIM(dokumente.name), ''), '" . _('Datei') . "'), seminar_id, range_id FROM dokumente JOIN seminare USING (seminar_id))");
         IndexManager::createIndex("(SELECT object_id, name, " . IndexManager::relevance(self::RATING_DOCUMENT_TITLE, 'dokumente.chdate') . " FROM dokumente" . IndexManager::createJoin('dokument_id') . " WHERE name != '')");
         IndexManager::createIndex("(SELECT object_id, description, " . IndexManager::relevance(self::RATING_DOCUMENT_DESCRIPTION, 'dokumente.chdate') . " FROM dokumente" . IndexManager::createJoin('dokument_id'). " WHERE description != '')");
     }
@@ -124,8 +124,7 @@ class IndexObject_Document extends IndexObject
     {
         // insert new Document into search_object
         $type = 'document';
-        $seminar = Course::find($document['seminar_id']);
-        $title = $seminar['Name'] . ': ' . $document['name'];
+        $title = $document['name'];
         IndexManager::createObjects(" VALUES ('" . $document['dokument_id'] . "', '"
             . $type . "', '"
             . $title . "', '"
@@ -134,8 +133,10 @@ class IndexObject_Document extends IndexObject
 
         // insert new Document into search_index
         $object_id_query = IndexManager::getSearchObjectId($document['dokument_id']);
-        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $document['name'] . "', 0) ");
-        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $document['description'] . "', 0) ");
+        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $document['name'] . "', "
+            . IndexManager::relevance(self::RATING_DOCUMENT_TITLE, $document['chdate']) . ") ");
+        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $document['description'] . "', "
+            . IndexManager::relevance(self::RATING_DOCUMENT_DESCRIPTION, $document['chdate']) . ") ");
     }
 
     /**

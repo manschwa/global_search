@@ -22,26 +22,26 @@ class IndexManager
 
     public static $log;
     public static $current_file;
-//    public static $db;
+    public static $db;
 
     public static function sqlIndex($restriction = null)
     {
         set_time_limit(3600);
-//        $db = DBManager::get();
+        self::$db = DBManager::get();
         $time = time();
 
         self::log("### Indexing started");
 
         try {
-
-//            // Purge DB
-//            self::$db->query('DROP TABLE IF EXISTS search_object_temp,search_index_temp,search_object_old,search_index_old');
-//            self::log("Database purged");
+            // Purge DB
+            self::$db->query("DROP TABLE IF EXISTS search_object_old, search_index_old");
+            self::$db->query('RENAME TABLE search_object TO search_object_old, search_index TO search_index_old');
+            self::log("Rename tables.");
 
             // Create temporary tables
-//            self::$db->query('CREATE TABLE search_object_temp LIKE search_object');
-//            self::$db->query('CREATE TABLE search_index_temp LIKE search_index');
-//            self::log("Temporary tables created");
+            self::$db->query('CREATE TABLE search_object LIKE search_object_old');
+            self::$db->query('CREATE TABLE search_index LIKE search_index_old');
+            self::log("New tables created.");
 
             foreach (glob(__DIR__ . '/IndexObject_*') as $indexFile) {
                 $type = explode('_', $indexFile);
@@ -55,18 +55,9 @@ class IndexManager
             }
             self::log("Finished indexing");
 
-//            // Create searchindex
-//            // Swap tables
-//            self::$db->query('RENAME TABLE '
-//                    . 'search_object TO search_object_old,'
-//                    . 'search_object_temp TO search_object,'
-//                    . 'search_index TO search_index_old,'
-//                    . 'search_index_temp TO search_index');
-//            self::log("Tables swapped");
-
-//            // Drop old index
-//            self::$db->query('DROP TABLE search_object_old,search_index_old');
-//            self::log("Old tables dropped");
+            // Drop old index
+            self::$db->query('DROP TABLE search_object_old, search_index_old');
+            self::log("Old tables dropped");
 
             $runtime = time() - $time;
             self::log("FINISHED! Runtime: " . floor($runtime / 60) . ":" . ($runtime % 60));
@@ -76,9 +67,15 @@ class IndexManager
 
         // In case of mysql error imediately abort
         } catch (PDOException $e) {
+            // Swap tables
+            self::$db->query('DROP TABLE search_object, search_index');
+            self::$db->query('RENAME TABLE '
+                . 'search_object_old TO search_object,'
+                . 'search_index_old TO search_index');
             self::log("MySQL Error occured!");
             self::log($e->getMessage());
             self::log("Aborting");
+            self::log("Tables recovered.");
         }
     }
 

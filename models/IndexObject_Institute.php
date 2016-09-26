@@ -20,7 +20,8 @@ class IndexObject_Institute extends IndexObject
     public function sqlIndex()
     {
         IndexManager::createObjects("(SELECT Institut_id, 'institute', Name, null,null FROM Institute)");
-        IndexManager::createIndex("(SELECT object_id, Name, " . self::RATING_INSTITUTE . " FROM Institute" . IndexManager::createJoin('Institut_id') . " WHERE Name != '')");
+        IndexManager::createIndex("(SELECT object_id, Name, " . self::RATING_INSTITUTE . " FROM Institute"
+            . IndexManager::createJoin('Institut_id') . " WHERE Name != '')");
     }
 
     /**
@@ -76,7 +77,8 @@ class IndexObject_Institute extends IndexObject
 
         // insert new Institute into search_index
         $object_id_query = IndexManager::getSearchObjectId($institute['institut_id']);
-        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $title . "', 0) ");
+        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $title . "', "
+            . self::RATING_INSTITUTE . ") ");
     }
 
     /**

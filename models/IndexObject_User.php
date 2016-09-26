@@ -26,8 +26,8 @@ class IndexObject_User extends IndexObject
         IndexManager::createObjects("(SELECT user_id, 'user', CONCAT_WS(' ',title_front, Vorname, Nachname, title_rear), username, null FROM auth_user_md5 JOIN user_info USING (user_id))");
         IndexManager::createIndex("(SELECT object_id, CONCAT_WS(' ', Vorname, Nachname, "
                 . "CONCAT('(', username, ')')), "
-                . self::RATING_USER." + LOG((SELECT avg(score) FROM user_info WHERE score != 0), score + 3) "
-                . " FROM auth_user_md5 JOIN user_info USING (user_id) JOIN search_object ON (user_id = range_id))");
+                . self::RATING_USER
+                . " FROM auth_user_md5 JOIN user_info USING (user_id) " . IndexManager::createJoin("user_id") . ")");
     }
 
     /**
@@ -124,8 +124,7 @@ class IndexObject_User extends IndexObject
         // insert new User into search_index
         $text = $title . ' (' . $user['username'] . ')';
         $object_id_query = IndexManager::getSearchObjectId($user['user_id']);
-        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $text . "', 0) ");
-        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $text . "', 0) ");
+        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $text . "', " . self::RATING_USER . ") ");
 
     }
 

@@ -3,7 +3,6 @@
 class IndexObject_Seminar extends IndexObject
 {
     const RATING_SEMINAR = 0.8;
-    const RATING_SEMINAR_DOZENT = 0.75;
     const RATING_SEMINAR_SUBTITLE = 0.7;
     const RATING_SEMINAR_OTHER = 0.6;
 
@@ -21,7 +20,7 @@ class IndexObject_Seminar extends IndexObject
      * specific information.
      */
     public function sqlIndex() {
-        IndexManager::createObjects("(SELECT seminar_id, 'seminar', CONCAT(s.name, ' ', '(', sd.name, ')'), null,null FROM seminare s JOIN semester_data sd ON s.start_time BETWEEN sd.beginn AND sd.ende)");
+        IndexManager::createObjects("(SELECT seminar_id, 'seminar', CONCAT(s.name, ' ', '(', sd.name, IF(s.duration_time = -1, '" . " - " . _("unbegrenzt")."', IF(sd2.name = sd.name, '', CONCAT(' - ', sd2.name))), ')'), null, null FROM seminare s JOIN semester_data sd ON s.start_time BETWEEN sd.beginn AND sd.ende LEFT JOIN semester_data sd2 ON (s.start_time + s.duration_time BETWEEN sd2.beginn AND sd2.ende))");
         IndexManager::log("Seminar objects created");
         IndexManager::createIndex("(SELECT object_id, CONCAT_WS(' ', Veranstaltungsnummer, Name), " . IndexManager::relevance(self::RATING_SEMINAR, 'start_time') . " FROM seminare " . IndexManager::createJoin('seminar_id') . ")");
         IndexManager::log("Indexed name");
@@ -134,8 +133,8 @@ class IndexObject_Seminar extends IndexObject
         // insert new Course into search_object
         $type = 'seminar';
         if ($name = $seminar['name']) {
-            $semester = Semester::findByTimestamp($seminar['start_time']);
-            $title = $seminar['name'] . ' (' . $semester['name'] . ')';
+            $seminar_runtime = $this->getSeminarRuntime($seminar);
+            $title = $seminar['name'] . ' ' . $seminar_runtime;
             IndexManager::createObjects(" VALUES ('" . $seminar['seminar_id'] . "', '"
                 . $type . "', '"
                 . $title . "', '"
@@ -147,13 +146,16 @@ class IndexObject_Seminar extends IndexObject
         $object_id_query = IndexManager::getSearchObjectId($seminar['seminar_id']);
         if ($name = $seminar['name']) {
             $index_title = $seminar['veranstaltungsnummer'] . ' ' . $name;
-            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $index_title . "', 0) ");
+            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $index_title . "', "
+                . IndexManager::relevance(self::RATING_SEMINAR, $seminar['start_time']) . ") ");
         }
         if ($subtitle = $seminar['untertitel']) {
-            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $subtitle . "', 0) ");
+            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $subtitle . "', "
+                . IndexManager::relevance(self::RATING_SEMINAR_SUBTITLE, $seminar['start_time']) . ") ");
         }
         if ($description = $seminar['beschreibung']) {
-            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $description . "', 0) ");
+            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $description . "', "
+                . IndexManager::relevance(self::RATING_SEMINAR_OTHER, $seminar['start_time']) . ") ");
         }
     }
 
@@ -185,5 +187,25 @@ class IndexObject_Seminar extends IndexObject
 
         // delete from search_object
         IndexManager::deleteObjects($seminar['seminar_id']);
+    }
+
+    /**
+     * Builds the string that shows a seminar's duration, e.g. (SS 2014 - WS 2014/15) or
+     * (SS 2016 - unbegrenzt) or (WS 2016/17).
+     *
+     * @param $seminar
+     * @return string
+     */
+    private function getSeminarRuntime($seminar)
+    {
+        $start_semester = Semester::findByTimestamp($seminar['start_time']);
+        $str = '(' . $start_semester['name'];
+        if ($seminar['duration_time'] == -1) {
+            $str .= (' - ' . _('unbegrenzt'));
+        } else {
+            $end_semester = Semester::findByTimestamp($seminar['start_time'] + $seminar['duration_time']);
+            $str .= ($start_semester == $end_semester ? '' : ' - ' . $end_semester['name']);
+        }
+        return $str . ')';
     }
 }

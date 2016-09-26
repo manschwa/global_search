@@ -25,7 +25,12 @@
                 $result['avatar'] = $indexClass::getAvatar($result);
                 ?>
                 <p class="avatar"><?= $result['avatar'] ?></p>
-                <a href="<?= URLHelper::getURL($result['link']) ?>"><?= htmlReady($result['title']) ?></a>
+                <a href="<?= URLHelper::getURL($result['link']) ?>">
+                <? if (in_array($result['type'], array('document', 'forumentry'))): ?>
+                    <? $seminar = Course::find($result['range2']) ?>
+                    <?= htmlReady($seminar['name'] . ': ') ?>
+                <? endif; ?>
+                <?= htmlReady($result['title']) ?></a>
                 <?= $this->search->getInfo($result, $this->search->query) ?>
             </article>
         <? endforeach; ?>
