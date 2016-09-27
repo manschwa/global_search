@@ -212,14 +212,14 @@ class IndexObject
     {
         $file_types = array();
         $file_types[''] = _('Alle Dateitypen');
-        $file_types[1] = _('PDF');
-        $file_types[2] = _('Text');
-        $file_types[3] = _('Bilder');
-        $file_types[4] = _('Audio');
-        $file_types[5] = _('Video');
-        $file_types[6] = _('Tabellen');
-        $file_types[7] = _('Präsentationen');
-        $file_types[8] = _('Komprimierte Dateien');
+        $file_types[1]  = _('PDF');
+        $file_types[2]  = _('Text');
+        $file_types[3]  = _('Bilder');
+        $file_types[4]  = _('Audio');
+        $file_types[5]  = _('Video');
+        $file_types[6]  = _('Tabellen');
+        $file_types[7]  = _('Präsentationen');
+        $file_types[8]  = _('Komprimierte Dateien');
         return $file_types;
     }
 

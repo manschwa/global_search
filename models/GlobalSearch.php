@@ -47,23 +47,18 @@ class GlobalSearch extends SearchType {
         // Timecapture
         $time = microtime(1);
 
-        $statement = $this->getResultSet($category);
+        $results = $this->getResultSet($category);
 
         // determine which SQL records (found objects) should be shown to the user
         // (and adding them to $this->results)
-        while ($object = $statement->fetch(PDO::FETCH_ASSOC)) {
-            if (!$this->category_filter || $object['type'] === $this->category_filter) {
-                $class = self::getClass($object['type']);
-                $object['name'] = $class::getType();
-                $object['link'] = $class::getLink($object);
-                if (!$is_root && $object['type'] === 'document') {
-                    $doc = StudipDocument::find($object['range_id']);
-                }
-                if ($is_root || $object['type'] !== 'document' || $doc->checkAccess($GLOBALS['user']->id)) {
-                    $this->results[] = $object;
-                    $this->resultTypes[$object['type']]++;
+        foreach ($results as $result) {
+            if (!$this->category_filter || $result['type'] === $this->category_filter) {
+                $class = self::getClass($result['type']);
+                $result['name'] = $class::getType();
+                $result['link'] = $class::getLink($result);
+                    $this->results[] = $result;
+                    $this->resultTypes[$result['type']]++;
                     $this->count++;
-                }
             }
         }
 
@@ -79,39 +74,85 @@ class GlobalSearch extends SearchType {
     private function getResultSet($type)
     {
         $search = $this->getSearchQuery($this->query);
+        $statement = DBManager::get()->prepare("SELECT search_object.*, text FROM search_object JOIN "
+            . $search . " USING (object_id) WHERE " . ($type ? (' type = :type ') : ' 1 ') . " GROUP BY object_id ");
 
-        if ($type) {
-            $class = $this->getClass($type);
-            $object = new $class;
-            if (method_exists($object, 'getSearchParams')) {
-                $search_params = $object->getSearchParams();
-            }
-        } else if ($semester = $_SESSION['global_search']['selects']['Semester']) {
-            $search_params['joins'] = " LEFT JOIN dokumente ON  dokumente.dokument_id = search_object.range_id "
-                                    . " LEFT JOIN seminare as ds ON dokumente.seminar_id = ds.Seminar_id "
-                                    . " LEFT JOIN forum_entries ON forum_entries.topic_id = search_object.range_id "
-                                    . " LEFT JOIN seminare as fs ON fs.Seminar_id = forum_entries.seminar_id "
-                                    . " LEFT JOIN seminare ON seminare.Seminar_id = search_object.range_id "
-                                    . " LEFT JOIN seminar_inst ON  seminar_inst.seminar_id = search_object.range_id "
-                                    . " LEFT JOIN user_inst ON  user_inst.user_id = search_object.range_id ";
-            $search_params['conditions'] = " AND (ds.start_time = " . $semester
-                                         . " OR fs.start_time = " . $semester
-                                         . " OR (seminare.start_time <= '" . $semester . "' AND ('" . $semester . "' <= (seminare.start_time + seminare.duration_time) OR seminare.duration_time = '-1'))"
-                                         . " OR type = 'user' OR type = 'institute') ";
-            $semester_condition['conditions'] = " AND (seminare.start_time <= '" . $semester . "' AND ('" . $semester . "' <= (seminare.start_time + seminare.duration_time) OR seminare.duration_time = '-1')) ";
-        }
-        $statement = DBManager::get()->prepare("SELECT search_object.*, text "
-                . " FROM search_object JOIN " . $search . " USING (object_id) " . $search_params['joins']
-                . " WHERE " . ($type ? (' type = :type ') : ' 1 ') . $search_params['conditions']
-                . ($GLOBALS['perm']->have_perm('root') || !$type ? '' : " AND " . $object->getCondition())
-                . (!$type && $this->query ? $this->buildWhere() : ' ') . " GROUP BY object_id "
-                . ($this->query ? '' : " LIMIT $this->limit")
-                . $this->getRelatedObjects($type, ($type ? $search_params : $semester_condition)));
+
+//        if ($type) {
+//            $class = $this->getClass($type);
+//            $object = new $class;
+//            if (method_exists($object, 'getSearchParams')) {
+//                $search_params = $object->getSearchParams();
+//            }
+//        } else if ($semester = $_SESSION['global_search']['selects']['Semester']) {
+//            $search_params['joins'] = " LEFT JOIN dokumente ON  dokumente.dokument_id = search_object.range_id "
+//                                    . " LEFT JOIN seminare as ds ON dokumente.seminar_id = ds.Seminar_id "
+//                                    . " LEFT JOIN forum_entries ON forum_entries.topic_id = search_object.range_id "
+//                                    . " LEFT JOIN seminare as fs ON fs.Seminar_id = forum_entries.seminar_id "
+//                                    . " LEFT JOIN seminare ON seminare.Seminar_id = search_object.range_id "
+//                                    . " LEFT JOIN seminar_inst ON  seminar_inst.seminar_id = search_object.range_id "
+//                                    . " LEFT JOIN user_inst ON  user_inst.user_id = search_object.range_id ";
+//            $search_params['conditions'] = " AND (ds.start_time = " . $semester
+//                                         . " OR fs.start_time = " . $semester
+//                                         . " OR (seminare.start_time <= '" . $semester . "' AND ('" . $semester . "' <= (seminare.start_time + seminare.duration_time) OR seminare.duration_time = '-1'))"
+//                                         . " OR type = 'user' OR type = 'institute') ";
+//            $semester_condition['conditions'] = " AND (seminare.start_time <= '" . $semester . "' AND ('" . $semester . "' <= (seminare.start_time + seminare.duration_time) OR seminare.duration_time = '-1')) ";
+//        }
+//        $statement = DBManager::get()->prepare("SELECT search_object.*, text "
+//                . " FROM search_object JOIN " . $search . " USING (object_id) " . $search_params['joins']
+//                . " WHERE " . ($type ? (' type = :type ') : ' 1 ') . $search_params['conditions']
+//                . ($GLOBALS['perm']->have_perm('root') || !$type ? '' : " AND " . $object->getCondition())
+//                . (!$type && $this->query ? $this->buildWhere() : ' ') . " GROUP BY object_id "
+//                . ($this->query ? '' : " LIMIT $this->limit")
+//                . $this->getRelatedObjects($type, ($type ? $search_params : $semester_condition)));
         if ($type) {
             $statement->bindParam(':type', $type);
         }
         $statement->execute();
-        return $statement;
+        $results = $statement->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($results as $key => $result) {
+            switch ($result['type']) {
+                case 'document':
+                    $doc = StudipDocument::find($result['range_id']);
+                    if (!$doc->checkAccess($GLOBALS['user']->id)) {
+                        unset($results[$key]);
+                    }
+                    if (!$this->checkSemester($doc['course'])) {
+                            unset($results[$key]);
+                    }
+                    break;
+                case 'forumentry':
+                    break;
+                case 'institute':
+                    break;
+                case 'seminar':
+                    break;
+                case 'user':
+                    break;
+                default:
+                    throw new InvalidArgumentException(_('Der ausgewählte IndexObject_Type existiert leider nicht.'));
+            }
+        }
+//        var_dump($results); die();
+        return $results;
+    }
+
+    /**
+     * Checks if a given course matches the semester chosen by the user.
+     *
+     * @param $course
+     * @return bool
+     */
+    private function checkSemester($course)
+    {
+        if ($semester = $_SESSION['global_search']['selects']['Semester']) {
+            if ($course['start_time'] <= $semester
+                && ($semester <= ($course['start_time'] + $course['duration_time'])
+                    || $course['duration_time'] == -1)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

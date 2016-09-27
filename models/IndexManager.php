@@ -2,7 +2,6 @@
 
 /**
  * IndexManager
- * 
  * Transforms an array of a definded type into a searchindex
  *
  * @author      Nobody
