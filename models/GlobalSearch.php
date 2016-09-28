@@ -43,7 +43,6 @@ class GlobalSearch extends SearchType {
      */
     private function search($category = null)
     {
-        $is_root = $GLOBALS['perm']->have_perm('root');
         // Timecapture
         $time = microtime(1);
 
@@ -52,14 +51,12 @@ class GlobalSearch extends SearchType {
         // determine which SQL records (found objects) should be shown to the user
         // (and adding them to $this->results)
         foreach ($results as $result) {
-            if (!$this->category_filter || $result['type'] === $this->category_filter) {
                 $class = self::getClass($result['type']);
                 $result['name'] = $class::getType();
                 $result['link'] = $class::getLink($result);
                     $this->results[] = $result;
                     $this->resultTypes[$result['type']]++;
                     $this->count++;
-            }
         }
 
         $this->time = microtime(1) - $time;
@@ -73,6 +70,7 @@ class GlobalSearch extends SearchType {
      */
     private function getResultSet($type)
     {
+        $is_root = $GLOBALS['perm']->have_perm('root');
         $search = $this->getSearchQuery($this->query);
         $statement = DBManager::get()->prepare("SELECT search_object.*, text FROM search_object JOIN "
             . $search . " USING (object_id) WHERE " . ($type ? (' type = :type ') : ' 1 ') . " GROUP BY object_id ");
@@ -113,12 +111,28 @@ class GlobalSearch extends SearchType {
         foreach ($results as $key => $result) {
             switch ($result['type']) {
                 case 'document':
+                    // test general access
                     $doc = StudipDocument::find($result['range_id']);
-                    if (!$doc->checkAccess($GLOBALS['user']->id)) {
+                    if (!$doc->checkAccess($GLOBALS['user']->id) && !$is_root) {
                         unset($results[$key]);
                     }
+                    // semester filter
                     if (!$this->checkSemester($doc['course'])) {
                             unset($results[$key]);
+                    }
+                    // seminar filter
+                    if ($seminar = $_SESSION['global_search']['selects'][IndexObject::getSelectName('seminar')]) {
+                        if ($doc['course']['seminar_id'] !== $seminar) {
+                            unset($results[$key]);
+                        }
+                    }
+                    // institute filter
+                    if (!$this->checkInstitute($doc['course'])) {
+                        unset($results[$key]);
+                    }
+                    // file_type filter
+                    if (!$this->checkFileType($doc['filename'])) {
+                        unset($results[$key]);
                     }
                     break;
                 case 'forumentry':
@@ -138,21 +152,61 @@ class GlobalSearch extends SearchType {
     }
 
     /**
-     * Checks if a given course matches the semester chosen by the user.
+     * Checks if a given course matches the semester selected by the user.
      *
      * @param $course
      * @return bool
      */
     private function checkSemester($course)
     {
-        if ($semester = $_SESSION['global_search']['selects']['Semester']) {
+        if ($semester = $_SESSION['global_search']['selects'][IndexObject::getSelectName('semester')]) {
             if ($course['start_time'] <= $semester
                 && ($semester <= ($course['start_time'] + $course['duration_time'])
                     || $course['duration_time'] == -1)) {
                 return true;
+            } else {
+                return false;
             }
         }
-        return false;
+        // the option 'all semesters' is selected
+        return true;
+    }
+
+    /**
+     * Checks if a given course matches the faculty/institute selected by the user.
+     *
+     * @param $course
+     * @return bool
+     */
+    private function checkInstitute($course)
+    {
+        if ($institute = $_SESSION['global_search']['selects'][IndexObject::getSelectName('institute')]) {
+            if ($institutes = Institute::findByFaculty($institute)) {
+                $institute_ids = array_column($institutes, 'Institut_id');
+                array_push($institute_ids, $institute);
+                return (in_array($course['Institut_id'], $institute_ids));
+            } else {
+                return ($institute == $course['Institut_id']);
+            }
+        }
+        // the option 'all institutes' is selected
+        return true;
+    }
+
+    /**
+     * Checks if a given filename matches the filetype selected by the user.
+     *
+     * @param $filename
+     * @return bool
+     */
+    private function checkFileType($filename)
+    {
+        if ($filetype = $_SESSION['global_search']['selects'][IndexObject::getSelectName('file_type')]) {
+            $file_extension = substr($filename, strrpos($filename, '.') + 1);
+            return in_array($file_extension, IndexObject::getFileTypes($filetype));
+        }
+        // the option 'all filetypes' is selected
+        return true;
     }
 
     /**

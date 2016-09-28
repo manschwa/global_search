@@ -21,7 +21,7 @@ class IndexObject
      * @param $type string name of the select filter
      * @return string select filter name
      */
-    protected function getSelectName($type)
+    public static function getSelectName($type)
     {
         switch ($type) {
             case 'semester':
@@ -237,7 +237,7 @@ class IndexObject
             case 2: // Text
                 return "('txt', 'doc', 'docx', 'odt', 'log', 'rtf', 'tex', 'pages', 'fodt', 'sxw')";
             case 3: // Pictures
-                return "('jpg', 'png', 'gif', 'bmp', 'psd', 'tif', 'tiff', 'eps', 'svg', 'odg', 'fodg')";
+                return "('jpg', 'jpeg', 'png', 'gif', 'bmp', 'psd', 'tif', 'tiff', 'eps', 'svg', 'odg', 'fodg')";
             case 4: // Audio
                 return "('mp3', 'wav', 'wma', 'midi', 'mp4a', 'm4p', 'aiff', 'aa', 'aac', 'aax')";
             case 5: // Video
@@ -253,6 +253,30 @@ class IndexObject
         }
     }
 
+    public static function getFileTypes($category)
+    {
+        switch ($category) {
+            case 1: // PDF
+                return array('pdf');
+            case 2: // Text
+                return array('txt', 'doc', 'docx', 'odt', 'log', 'rtf', 'tex', 'pages', 'fodt', 'sxw');
+            case 3: // Pictures
+                return array('jpg', 'jpeg', 'png', 'gif', 'bmp', 'psd', 'tif', 'tiff', 'eps', 'svg', 'odg', 'fodg');
+            case 4: // Audio
+                return array('mp3', 'wav', 'wma', 'midi', 'mp4a', 'm4p', 'aiff', 'aa', 'aac', 'aax');
+            case 5: // Video
+                return array('mov', 'mp4', 'wmv', 'avi', 'flv', 'mkv', 'webm', 'gifv', 'qt', 'mpg', 'mpeg', 'mpv', 'm4v', '3gp', '3g2');
+            case 6: // Spreadsheets
+                return array('xls', 'xlsx', 'ods', 'fods', 'numbers');
+            case 7: // Presentations
+                return array('ppt', 'pptx', 'pps', 'key', 'odp', 'fodp');
+            case 8: // Compressed Files
+                return array('zip', 'rar', 'tz', 'rz', 'bz2', '7zip', '7z', 'tar', 'tgz');
+            default:
+                throw new InvalidArgumentException(_('Der ausgewählte Dateityp existiert leider nicht.'));
+        }
+    }
+
     /**
      * If a semester is selected in the filter, an SQL condition will be returned.
      *
@@ -261,7 +285,8 @@ class IndexObject
     private function getSeminarsForSemester()
     {
         if ($semester = $_SESSION['global_search']['selects'][$this->getSelectName('semester')]) {
-            return ' seminare.start_time = ' . $semester;
+            return " seminare.start_time <= '" . $semester . "' AND ('" . $semester
+                 . "' <= (seminare.start_time + seminare.duration_time) OR seminare.duration_time = '-1')";
         } else {
             return 1;
         }
