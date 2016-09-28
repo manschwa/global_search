@@ -75,7 +75,6 @@ class GlobalSearch extends SearchType {
         $statement = DBManager::get()->prepare("SELECT search_object.*, text FROM search_object JOIN "
             . $search . " USING (object_id) WHERE " . ($type ? (' type = :type ') : ' 1 ') . " GROUP BY object_id ");
 
-
 //        if ($type) {
 //            $class = $this->getClass($type);
 //            $object = new $class;
@@ -103,6 +102,7 @@ class GlobalSearch extends SearchType {
 //                . (!$type && $this->query ? $this->buildWhere() : ' ') . " GROUP BY object_id "
 //                . ($this->query ? '' : " LIMIT $this->limit")
 //                . $this->getRelatedObjects($type, ($type ? $search_params : $semester_condition)));
+
         if ($type) {
             $statement->bindParam(':type', $type);
         }
@@ -111,43 +111,94 @@ class GlobalSearch extends SearchType {
         foreach ($results as $key => $result) {
             switch ($result['type']) {
                 case 'document':
+                    $document = StudipDocument::find($result['range_id']);
                     // test general access
-                    $doc = StudipDocument::find($result['range_id']);
-                    if (!$doc->checkAccess($GLOBALS['user']->id) && !$is_root) {
+                    if (!$document->checkAccess($GLOBALS['user']->id) && !$is_root) {
                         unset($results[$key]);
+                        break;
                     }
                     // semester filter
-                    if (!$this->checkSemester($doc['course'])) {
-                            unset($results[$key]);
+                    if (!$this->checkSemester($document['course'])) {
+                        unset($results[$key]);
+                        break;
                     }
                     // seminar filter
                     if ($seminar = $_SESSION['global_search']['selects'][IndexObject::getSelectName('seminar')]) {
-                        if ($doc['course']['seminar_id'] !== $seminar) {
+                        if ($document['course']['seminar_id'] !== $seminar) {
                             unset($results[$key]);
+                            break;
                         }
                     }
                     // institute filter
-                    if (!$this->checkInstitute($doc['course'])) {
+                    if (!$this->checkInstitute($document['course'])) {
                         unset($results[$key]);
+                        break;
                     }
                     // file_type filter
-                    if (!$this->checkFileType($doc['filename'])) {
+                    if (!$this->checkFileType($document['filename'])) {
                         unset($results[$key]);
+                        break;
                     }
                     break;
                 case 'forumentry':
+                    // test general access (course membership)
+                    if (!$this->checkMembership($result['range2']) && !$is_root) {
+                        unset($results[$key]);
+                        break;
+                    }
+                    // semester filter
+                    if (!$this->checkSemester(Course::find($result['range2']))) {
+                        unset($results[$key]);
+                        break;
+                    }
+                    // seminar filter
+                    if ($seminar = $_SESSION['global_search']['selects'][IndexObject::getSelectName('seminar')]) {
+                        if ($result['range2'] !== $seminar) {
+                            unset($results[$key]);
+                            break;
+                        }
+                    }
                     break;
                 case 'institute':
+                    // no restrictions here
                     break;
                 case 'seminar':
+                    // test general access (visibility)
+                    $course = Course::find($result['range_id']);
+                    if (!$course['visible'] && !$this->checkMembership($course['seminar_id'])) {
+                        unset($results[$key]);
+                        break;
+                    }
+                    // semester filter
+                    if (!$this->checkSemester($course)) {
+                        unset($results[$key]);
+                        break;
+                    }
+                    // institute filter
+                    if (!$this->checkInstitute($course)) {
+                        unset($results[$key]);
+                        break;
+                    }
+                    // seminar type filter
+                    if (!$this->checkSemType($course)) {
+                        unset($results[$key]);
+                        break;
+                    }
                     break;
                 case 'user':
+                    // test general access (visibility)
+//                    $users = User::findBySQL(" (EXISTS (SELECT 1 FROM auth_user_md5 LEFT JOIN user_visibility USING (user_id) WHERE user_id = '" . $result['range_id'] . "' AND " . get_vis_query('auth_user_md5', 'search') .")) ");
+//                    var_dump(array_column($users, 'user_id')); die();
+                    // institute filter
+                    if (!$this->checkInstitute($course)) {
+                        unset($results[$key]);
+                        break;
+                    }
                     break;
                 default:
                     throw new InvalidArgumentException(_('Der ausgewählte IndexObject_Type existiert leider nicht.'));
             }
         }
-//        var_dump($results); die();
         return $results;
     }
 
@@ -209,6 +260,32 @@ class GlobalSearch extends SearchType {
         return true;
     }
 
+    private function checkMembership($course_id)
+    {
+        $course_ids = array_column(CourseMember::findByUser($GLOBALS['user']->id), 'seminar_id');
+        return in_array($course_id, $course_ids);
+    }
+
+    private function checkSemType($course)
+    {
+        if ($sem_class = $_SESSION['global_search']['selects'][IndexObject::getSelectName('sem_class')]) {
+            if ($pos = strpos($sem_class, '_')) {
+                // return just the sem_types.id (which is equal to seminare.status)
+                return $course['status'] == substr($sem_class, $pos + 1);
+            } else {
+                $classes = SemClass::getClasses();
+                $type_ids = array();
+                // fill an array containing all sem_types belonging to the chosen sem_class
+                $class = $classes[$sem_class];
+                foreach ($class->getSemTypes() as $types_id => $types) {
+                    array_push($type_ids, $types['id']);
+                }
+                return in_array($course['status'], $type_ids);
+            }
+        }
+        // the option 'all seminar types' is selected
+        return true;
+    }
     /**
      * Builds SQL-search string which is included into the statement below if a query is given.
      *
