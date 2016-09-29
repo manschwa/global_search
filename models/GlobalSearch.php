@@ -186,11 +186,13 @@ class GlobalSearch extends SearchType {
                     }
                     break;
                 case 'user':
-                    // test general access (visibility)
-//                    $users = User::findBySQL(" (EXISTS (SELECT 1 FROM auth_user_md5 LEFT JOIN user_visibility USING (user_id) WHERE user_id = '" . $result['range_id'] . "' AND " . get_vis_query('auth_user_md5', 'search') .")) ");
-//                    var_dump(array_column($users, 'user_id')); die();
+                    // test general access (visibility with get_vis_query())
+                    if (!$this->checkUser($result['range_id'])) {
+                        unset($results[$key]);
+                        break;
+                    }
                     // institute filter
-                    if (!$this->checkInstitute($course)) {
+                    if (!$this->checkInstituteForUser($result['range_id'])) {
                         unset($results[$key]);
                         break;
                     }
@@ -231,17 +233,41 @@ class GlobalSearch extends SearchType {
      */
     private function checkInstitute($course)
     {
-        if ($institute = $_SESSION['global_search']['selects'][IndexObject::getSelectName('institute')]) {
-            if ($institutes = Institute::findByFaculty($institute)) {
-                $institute_ids = array_column($institutes, 'Institut_id');
-                array_push($institute_ids, $institute);
+        if ($institute_ids = $this->getInstituteIds()) {
                 return (in_array($course['Institut_id'], $institute_ids));
+        }
+        // the option 'all institutes' is selected
+        return true;
+    }
+
+    private function checkInstituteForUser($user_id)
+    {
+        if ($_SESSION['global_search']['selects'][IndexObject::getSelectName('institute')]) {
+            $institutes = InstituteMember::findByUser($user_id);
+            $institute_user_ids = array_column($institutes, 'Institut_id');
+            $institute_ids = $this->getInstituteIds();
+            if (array_intersect($institute_ids, $institute_user_ids)) {
+                return true;
             } else {
-                return ($institute == $course['Institut_id']);
+                return false;
             }
         }
         // the option 'all institutes' is selected
         return true;
+    }
+
+    private function getInstituteIds()
+    {
+        if ($institute = $_SESSION['global_search']['selects'][IndexObject::getSelectName('institute')]) {
+            if ($institutes = Institute::findByFaculty($institute)) {
+                $institute_ids = array_column($institutes, 'Institut_id');
+                array_push($institute_ids, $institute);
+                return $institute_ids;
+            } else {
+                return array($institute);
+            }
+        }
+        return null;
     }
 
     /**
@@ -260,12 +286,20 @@ class GlobalSearch extends SearchType {
         return true;
     }
 
+    /**
+     * @param $course_id
+     * @return bool
+     */
     private function checkMembership($course_id)
     {
         $course_ids = array_column(CourseMember::findByUser($GLOBALS['user']->id), 'seminar_id');
         return in_array($course_id, $course_ids);
     }
 
+    /**
+     * @param $course
+     * @return bool
+     */
     private function checkSemType($course)
     {
         if ($sem_class = $_SESSION['global_search']['selects'][IndexObject::getSelectName('sem_class')]) {
@@ -286,10 +320,28 @@ class GlobalSearch extends SearchType {
         // the option 'all seminar types' is selected
         return true;
     }
+
+    /**
+     * @param $user_id
+     * @return bool
+     */
+    private function checkUser($user_id)
+    {
+        $users = User::findBySQL(" LEFT JOIN user_visibility USING (user_id) "
+            . " JOIN search_object ON search_object.range_id = user_id WHERE "
+            . get_vis_query('auth_user_md5', 'search'));
+        $user_ids = array_column($users, 'user_id');
+        if (in_array($user_id, $user_ids)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     /**
      * Builds SQL-search string which is included into the statement below if a query is given.
      *
-     * @param $search_string entered by the user
+     * @param $search_string string entered by the user
      * @return string: SQL query
      */
     private function getSearchQuery ($search_string)
