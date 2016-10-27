@@ -235,7 +235,7 @@ class ShowController extends StudipController
     {
         $runtime_widget = new SidebarWidget();
         $runtime_widget->setTitle(_('Laufzeit'));
-        $runtime_widget->addElement(new InfoboxElement($this->search->time));
+        $runtime_widget->addElement(new WidgetElement($this->search->time));
         return $runtime_widget;
     }
 

@@ -51,14 +51,15 @@ class GlobalSearch extends SearchType {
         // determine which SQL records (found objects) should be shown to the user
         // (and adding them to $this->results)
         foreach ($results as $result) {
+            if (!$category || $result['type'] == $category) {
                 $class = self::getClass($result['type']);
                 $result['name'] = $class::getType();
                 $result['link'] = $class::getLink($result);
-                    $this->results[] = $result;
-                    $this->resultTypes[$result['type']]++;
-                    $this->count++;
+                $this->results[] = $result;
+                $this->resultTypes[$result['type']]++;
+                $this->count++;
+            }
         }
-
         $this->time = microtime(1) - $time;
     }
 
@@ -71,45 +72,65 @@ class GlobalSearch extends SearchType {
     private function getResultSet($type)
     {
         $is_root = $GLOBALS['perm']->have_perm('root');
+        $related_types = array('seminar', 'forumentry', 'document');
         $search = $this->getSearchQuery($this->query);
         $statement = DBManager::get()->prepare("SELECT search_object.*, text FROM search_object JOIN "
-            . $search . " USING (object_id) WHERE " . ($type ? (' type = :type ') : ' 1 ') . " GROUP BY object_id ");
-
-//        if ($type) {
-//            $class = $this->getClass($type);
-//            $object = new $class;
-//            if (method_exists($object, 'getSearchParams')) {
-//                $search_params = $object->getSearchParams();
-//            }
-//        } else if ($semester = $_SESSION['global_search']['selects']['Semester']) {
-//            $search_params['joins'] = " LEFT JOIN dokumente ON  dokumente.dokument_id = search_object.range_id "
-//                                    . " LEFT JOIN seminare as ds ON dokumente.seminar_id = ds.Seminar_id "
-//                                    . " LEFT JOIN forum_entries ON forum_entries.topic_id = search_object.range_id "
-//                                    . " LEFT JOIN seminare as fs ON fs.Seminar_id = forum_entries.seminar_id "
-//                                    . " LEFT JOIN seminare ON seminare.Seminar_id = search_object.range_id "
-//                                    . " LEFT JOIN seminar_inst ON  seminar_inst.seminar_id = search_object.range_id "
-//                                    . " LEFT JOIN user_inst ON  user_inst.user_id = search_object.range_id ";
-//            $search_params['conditions'] = " AND (ds.start_time = " . $semester
-//                                         . " OR fs.start_time = " . $semester
-//                                         . " OR (seminare.start_time <= '" . $semester . "' AND ('" . $semester . "' <= (seminare.start_time + seminare.duration_time) OR seminare.duration_time = '-1'))"
-//                                         . " OR type = 'user' OR type = 'institute') ";
-//            $semester_condition['conditions'] = " AND (seminare.start_time <= '" . $semester . "' AND ('" . $semester . "' <= (seminare.start_time + seminare.duration_time) OR seminare.duration_time = '-1')) ";
-//        }
-//        $statement = DBManager::get()->prepare("SELECT search_object.*, text "
-//                . " FROM search_object JOIN " . $search . " USING (object_id) " . $search_params['joins']
-//                . " WHERE " . ($type ? (' type = :type ') : ' 1 ') . $search_params['conditions']
-//                . ($GLOBALS['perm']->have_perm('root') || !$type ? '' : " AND " . $object->getCondition())
-//                . (!$type && $this->query ? $this->buildWhere() : ' ') . " GROUP BY object_id "
-//                . ($this->query ? '' : " LIMIT $this->limit")
-//                . $this->getRelatedObjects($type, ($type ? $search_params : $semester_condition)));
+            . $search . " USING (object_id) WHERE "
+            // show related search results if you searched for a username and a different 'type' is selected
+            . ($type ? (in_array($type, $related_types) && $this->query ? " type IN ('user', 'seminar', 'forumentry', 'document') " : (' type = :type ')) : ' 1 ')
+            . " GROUP BY object_id "
+            . ($this->query ? " " : " LIMIT " . $this->limit));
 
         if ($type) {
             $statement->bindParam(':type', $type);
         }
         $statement->execute();
         $results = $statement->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($results as $key => $result) {
+
+        // some information that just needs to be accumulated once
+        $course_ids = $this->getCourseIdsForUser();
+        $sem_classes = SemClass::getClasses();
+        $institute_ids = $this->getInstituteIds();
+        $visible_user_ids = $this->getVisibleUserIds();
+
+        // go through the results and delete everything that should not be seen
+        // TODO create separate methods
+        $cnt = 0;
+        foreach ($results as $key => &$result) {
+            $cnt++;
             switch ($result['type']) {
+                case 'user':
+                    // test general access (visibility with get_vis_query())
+                    if (!in_array($result['range_id'], $visible_user_ids)) {
+                        unset($results[$key]);
+                        break;
+                    }
+                    // add related objects for a given search string (case: there is no Username for an
+                    // 'author' of a seminar/forumentry/document stored in the search_index table, so you need
+                    // a search query that finds seminars etc. by username. Reason: if the name of a
+                    // Person changes, you don't want to update all entries in the search_index table).
+                    switch ($type) {
+                        case 'seminar':
+                            $this->addRelatedSeminars($results, $result['range_id']);
+                            break;
+                        case 'forumentry':
+                            $this->addRelatedForumentries($results, $result['range_id']);
+                            break;
+                        case 'document':
+                            $this->addRelatedDocuments($results, $result['range_id']);
+                            break;
+                        default:
+                            $this->addRelatedSeminars($results, $result['range_id']);
+                            $this->addRelatedForumentries($results, $result['range_id']);
+                            $this->addRelatedDocuments($results, $result['range_id']);
+                            break;
+                    }
+                    // institute filter
+                    if (!$this->checkInstituteForUser($result['range_id'], $institute_ids)) {
+                        unset($results[$key]);
+                        break;
+                    }
+                    break;
                 case 'document':
                     $document = StudipDocument::find($result['range_id']);
                     // test general access
@@ -130,7 +151,7 @@ class GlobalSearch extends SearchType {
                         }
                     }
                     // institute filter
-                    if (!$this->checkInstitute($document['course'])) {
+                    if (!$this->checkInstitute($document['course'], $institute_ids)) {
                         unset($results[$key]);
                         break;
                     }
@@ -142,7 +163,7 @@ class GlobalSearch extends SearchType {
                     break;
                 case 'forumentry':
                     // test general access (course membership)
-                    if (!$this->checkMembership($result['range2']) && !$is_root) {
+                    if (!in_array($result['range2'], $course_ids) && !$is_root) {
                         unset($results[$key]);
                         break;
                     }
@@ -163,9 +184,9 @@ class GlobalSearch extends SearchType {
                     // no restrictions here
                     break;
                 case 'seminar':
-                    // test general access (visibility)
                     $course = Course::find($result['range_id']);
-                    if (!$course['visible'] && !$this->checkMembership($course['seminar_id'])) {
+                    // test general access (visibility)
+                    if (!$course['visible'] && !in_array($course['seminar_id'], $course_ids) && !$is_root) {
                         unset($results[$key]);
                         break;
                     }
@@ -175,24 +196,12 @@ class GlobalSearch extends SearchType {
                         break;
                     }
                     // institute filter
-                    if (!$this->checkInstitute($course)) {
+                    if (!$this->checkInstitute($course, $institute_ids)) {
                         unset($results[$key]);
                         break;
                     }
                     // seminar type filter
-                    if (!$this->checkSemType($course)) {
-                        unset($results[$key]);
-                        break;
-                    }
-                    break;
-                case 'user':
-                    // test general access (visibility with get_vis_query())
-                    if (!$this->checkUser($result['range_id'])) {
-                        unset($results[$key]);
-                        break;
-                    }
-                    // institute filter
-                    if (!$this->checkInstituteForUser($result['range_id'])) {
+                    if (!$this->checkSemType($course, $sem_classes)) {
                         unset($results[$key]);
                         break;
                     }
@@ -202,6 +211,63 @@ class GlobalSearch extends SearchType {
             }
         }
         return $results;
+    }
+
+    /**
+     * @param $results
+     * @param $user_id
+     */
+    private function addRelatedSeminars(&$results, $user_id)
+    {
+        $user = User::find($user_id);
+        $dozent = _('Dozent') . ": " . $user['Vorname'] . " " . $user['Nachname'];
+        foreach (CourseMember::findByUser($user_id) as $course_membership) {
+            if ($course_membership['status'] == 'dozent') {
+                // TODO probably generates too much search queries or lasts too long...
+                $statement = DBManager::get()->prepare("SELECT search_object.*, '" . $dozent . "' as text FROM search_object JOIN "
+                    . " search_index USING (object_id) WHERE range_id = '" . $course_membership['Seminar_id']
+                    . "' GROUP BY object_id ");
+                $statement->execute();
+                $result = $statement->fetchAll(PDO::FETCH_ASSOC);
+                $results[] = $result[0];
+            }
+        }
+    }
+
+    /**
+     * @param $results
+     * @param $user_id
+     */
+    private function addRelatedForumentries(&$results, $user_id)
+    {
+        $user = User::find($user_id);
+        $author = _('Autor') . ": " . $user['Vorname'] . " " . $user['Nachname'];
+        $statement = DBManager::get()->prepare("SELECT search_object.*, '" . $author . "' as text FROM search_object JOIN "
+            . " search_index USING (object_id) JOIN forum_entries ON search_object.range_id = forum_entries.topic_id "
+            . " WHERE forum_entries.user_id = '" . $user_id . "' GROUP BY object_id ");
+        $statement->execute();
+        $forumentries = $statement->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($forumentries as $forumentry) {
+            $results[] = $forumentry;
+        }
+    }
+
+    /**
+     * @param $results
+     * @param $user_id
+     */
+    private function addRelatedDocuments(&$results, $user_id)
+    {
+        $user = User::find($user_id);
+        $uploader = _('Uploader') . ": " . $user['Vorname'] . " " . $user['Nachname'];
+        $statement = DBManager::get()->prepare("SELECT search_object.*, '" . $uploader . "' as text FROM search_object JOIN "
+            . " search_index USING (object_id) JOIN dokumente ON search_object.range_id = dokumente.dokument_id "
+            . " WHERE dokumente.user_id = '" . $user_id . "' GROUP BY object_id ");
+        $statement->execute();
+        $documents = $statement->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($documents as $document) {
+            $results[] = $document;
+        }
     }
 
     /**
@@ -226,26 +292,39 @@ class GlobalSearch extends SearchType {
     }
 
     /**
+     * @return array
+     */
+    private function getCourseIdsForUser()
+    {
+        return array_column(CourseMember::findByUser($GLOBALS['user']->id), 'seminar_id');
+    }
+
+    /**
      * Checks if a given course matches the faculty/institute selected by the user.
      *
      * @param $course
+     * @param $institute_ids
      * @return bool
      */
-    private function checkInstitute($course)
+    private function checkInstitute($course, $institute_ids)
     {
-        if ($institute_ids = $this->getInstituteIds()) {
+        if ($institute_ids) {
                 return (in_array($course['Institut_id'], $institute_ids));
         }
         // the option 'all institutes' is selected
         return true;
     }
 
-    private function checkInstituteForUser($user_id)
+    /**
+     * @param $user_id
+     * @param $institute_ids
+     * @return bool
+     */
+    private function checkInstituteForUser($user_id, $institute_ids)
     {
         if ($_SESSION['global_search']['selects'][IndexObject::getSelectName('institute')]) {
             $institutes = InstituteMember::findByUser($user_id);
             $institute_user_ids = array_column($institutes, 'Institut_id');
-            $institute_ids = $this->getInstituteIds();
             if (array_intersect($institute_ids, $institute_user_ids)) {
                 return true;
             } else {
@@ -256,12 +335,16 @@ class GlobalSearch extends SearchType {
         return true;
     }
 
+    /**
+     * @return array|null
+     */
     private function getInstituteIds()
     {
         if ($institute = $_SESSION['global_search']['selects'][IndexObject::getSelectName('institute')]) {
+            // TODO this can be done once, not every time again
             if ($institutes = Institute::findByFaculty($institute)) {
                 $institute_ids = array_column($institutes, 'Institut_id');
-                array_push($institute_ids, $institute);
+                $institute_ids[] = $institute;
                 return $institute_ids;
             } else {
                 return array($institute);
@@ -287,32 +370,22 @@ class GlobalSearch extends SearchType {
     }
 
     /**
-     * @param $course_id
-     * @return bool
-     */
-    private function checkMembership($course_id)
-    {
-        $course_ids = array_column(CourseMember::findByUser($GLOBALS['user']->id), 'seminar_id');
-        return in_array($course_id, $course_ids);
-    }
-
-    /**
      * @param $course
+     * @param $sem_classes
      * @return bool
      */
-    private function checkSemType($course)
+    private function checkSemType($course, $sem_classes)
     {
         if ($sem_class = $_SESSION['global_search']['selects'][IndexObject::getSelectName('sem_class')]) {
             if ($pos = strpos($sem_class, '_')) {
                 // return just the sem_types.id (which is equal to seminare.status)
                 return $course['status'] == substr($sem_class, $pos + 1);
             } else {
-                $classes = SemClass::getClasses();
                 $type_ids = array();
                 // fill an array containing all sem_types belonging to the chosen sem_class
-                $class = $classes[$sem_class];
+                $class = $sem_classes[$sem_class];
                 foreach ($class->getSemTypes() as $types_id => $types) {
-                    array_push($type_ids, $types['id']);
+                    $type_ids[] = $types['id'];
                 }
                 return in_array($course['status'], $type_ids);
             }
@@ -322,20 +395,15 @@ class GlobalSearch extends SearchType {
     }
 
     /**
-     * @param $user_id
-     * @return bool
+     * @return array
      */
-    private function checkUser($user_id)
+    private function getVisibleUserIds()
     {
+        // TODO gets too many users... should be dependend on the search query / found users
         $users = User::findBySQL(" LEFT JOIN user_visibility USING (user_id) "
             . " JOIN search_object ON search_object.range_id = user_id WHERE "
             . get_vis_query('auth_user_md5', 'search'));
-        $user_ids = array_column($users, 'user_id');
-        if (in_array($user_id, $user_ids)) {
-            return true;
-        } else {
-            return false;
-        }
+        return $user_ids = array_column($users, 'user_id');
     }
 
     /**
@@ -344,7 +412,7 @@ class GlobalSearch extends SearchType {
      * @param $search_string string entered by the user
      * @return string: SQL query
      */
-    private function getSearchQuery ($search_string)
+    private function getSearchQuery($search_string)
     {
         if ($search_string) {
             $query = '"' . $search_string . '"';
@@ -358,142 +426,6 @@ class GlobalSearch extends SearchType {
     }
 
     /**
-     * Gets related objects for a given search string (case: there is no Username for an
-     * 'author' of a seminar/forumentry/document stored in the search_index table, so you need
-     * a search query that finds seminars etc. by username. Reason: if the name of a
-     * Person changes, you don't want to update all entries in the search_index table).
-     *
-     * @param $type string: category_type
-     * @param $search_params array with search conditions for the further use
-     * @return string SQL-Query
-     */
-    private function getRelatedObjects($type, $search_params)
-    {
-        if ($this->query) {
-            switch ($type) {
-                case 'seminar':
-                    return $this->getRelatedSeminars($search_params);
-                case 'forumentry':
-                    return $this->getRelatedForumentries($search_params);
-                case 'document':
-                    return $this->getRelatedDocuments($search_params);
-                case 'institute':
-                case 'user':
-                    return '';
-                default:
-                    return $this->getRelatedSeminars($search_params)
-                         . $this->getRelatedForumentries($search_params)
-                         . $this->getRelatedDocuments($search_params);
-            }
-        } else {
-            return '';
-        }
-    }
-
-    /**
-     * If a given search string provides a person as a result, this query finds the
-     * Seminars where this person is the lecturer (status = 'dozent').
-     *
-     * @param $search_params
-     * @return string
-     */
-    private function getRelatedSeminars($search_params)
-    {
-        return " UNION SELECT so1.*, so2.title as text "
-            . " FROM search_object as so1 "
-            . " LEFT JOIN seminar_user as su ON so1.range_id = su.Seminar_id "
-            . " LEFT JOIN search_object as so2 ON su.user_id = so2.range_id "
-            . " JOIN seminare ON seminare.Seminar_id = so1.range_id "
-            . " LEFT JOIN seminar_inst ON  seminar_inst.seminar_id = so1.range_id "
-            . " WHERE so1.type = 'seminar' " . $search_params['conditions']
-            . " AND su.status = 'dozent' AND su.user_id IN "
-            . $this->getUserIdsForQuery()
-            . ($GLOBALS['perm']->have_perm('root') ? '' : " AND "
-            . " (EXISTS (SELECT 1 FROM seminare WHERE Seminar_id = so1.range_id AND visible = 1) "
-            . " OR EXISTS (SELECT 1 FROM seminar_user WHERE Seminar_id = so1.range_id "
-            . " AND user_id = '{$GLOBALS['user']->id}')) ");
-    }
-
-    /**
-     * If a given search string provides a person as a result, this query finds the
-     * Forumentries where this person is the author.
-     *
-     * @param $search_params
-     * @return string
-     */
-    private function getRelatedForumentries($search_params)
-    {
-        return " UNION SELECT so1.*, so2.title as text "
-            . " FROM search_object as so1 "
-            . " LEFT JOIN forum_entries ON so1.range_id = forum_entries.topic_id "
-            . " LEFT JOIN search_object as so2 ON forum_entries.user_id = so2.range_id "
-            . " LEFT JOIN seminare ON seminare.Seminar_id = forum_entries.seminar_id "
-            . " WHERE so1.type = 'forumentry'" . $search_params['conditions']
-            . " AND forum_entries.user_id IN "
-            . $this->getUserIdsForQuery()
-            . ($GLOBALS['perm']->have_perm('root') ? '' : " AND "
-            . " (EXISTS (SELECT 1 FROM seminar_user "
-            . " WHERE Seminar_id = so1.range2 AND user_id = '{$GLOBALS['user']->id}')) ");
-    }
-
-    /**
-     * If a given search string provides a person as a result, this query finds the
-     * Forumentries where this person is the uploader.
-     *
-     * @param $search_params
-     * @return string
-     */
-    private function getRelatedDocuments($search_params)
-    {
-        return " UNION SELECT so1.*, so2.title as text "
-            . " FROM search_object as so1 "
-            . " LEFT JOIN dokumente ON so1.range_id = dokumente.dokument_id "
-            . " LEFT JOIN search_object as so2 ON dokumente.user_id = so2.range_id "
-            . " LEFT JOIN seminare ON dokumente.seminar_id = seminare.Seminar_id "
-            . " WHERE so1.type = 'document' " . $search_params['conditions']
-            . " AND dokumente.user_id IN "
-            . $this->getUserIdsForQuery()
-            . ($GLOBALS['perm']->have_perm('root') ? '' : " AND "
-            . " (EXISTS (SELECT 1 FROM seminar_user "
-            . " WHERE Seminar_id = so1.range2 AND user_id = '{$GLOBALS['user']->id}')) ");
-    }
-
-    /**
-     * Provides the user_id (for a specific query) for further use in other queries.
-     *
-     * @return string
-     */
-    private function getUserIdsForQuery()
-    {
-        return " (SELECT range_id "
-             . " FROM search_index JOIN search_object USING (object_id) WHERE type = 'user'"
-             . " AND MATCH (text) AGAINST ('" . $this->query . "') "
-             . " GROUP BY object_id) ";
-    }
-
-    /**
-     * Returns the condition queries for each IndexObject. Is just called if no type/category is chosen.
-     *
-     * @return int|string
-     */
-    public function buildWhere()
-    {
-        if ($GLOBALS['perm']->have_perm('root')) {
-            return '';
-        }
-        foreach ($this->getIndexObjectTypes() as $type) {
-            $indexClass = $this->getClass($type);
-            $indexObject = new $indexClass;
-            if ($indexObject->getCondition()) {
-                $condititions[] = " (search_object.type = '$type' AND " . $indexObject->getCondition() . ") ";
-            } else {
-                $condititions[] = " (search_object.type = '$type') ";
-            }
-        }
-        return ' AND (' . join(' OR ', $condititions) . ') ';
-    }
-
-    /**
      * Returns the active filter options for the given category type chosen by the user.
      *
      * @return array containing only the checked/active filters for the given category.
@@ -503,7 +435,7 @@ class GlobalSearch extends SearchType {
         $facets = array();
         foreach ($_SESSION['global_search']['facets'] as $facet => $value) {
             if ($_SESSION['global_search']['facets'][$facet]) {
-                array_push($facets, $facet);
+                $facets[] =  $facet;
             }
         }
         return $facets;
@@ -522,7 +454,7 @@ class GlobalSearch extends SearchType {
             $indexClass = basename($indexFile, ".php");
             $typename = explode('_', $indexClass);
             $typename = strtolower($typename[1]);
-            array_push($types, $typename);
+            $types[] = $typename;
         }
         return $types;
     }
