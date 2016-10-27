@@ -20,15 +20,26 @@ class IndexObject_Seminar extends IndexObject
      * specific information.
      */
     public function sqlIndex() {
-        IndexManager::createObjects("(SELECT seminar_id, 'seminar', CONCAT(s.name, ' ', '(', sd.name, IF(s.duration_time = -1, '" . " - " . _("unbegrenzt")."', IF(sd2.name = sd.name, '', CONCAT(' - ', sd2.name))), ')'), null, null FROM seminare s JOIN semester_data sd ON s.start_time BETWEEN sd.beginn AND sd.ende LEFT JOIN semester_data sd2 ON (s.start_time + s.duration_time BETWEEN sd2.beginn AND sd2.ende))");
+        IndexManager::createObjects("(SELECT seminar_id, 'seminar', CONCAT(s.name, ' ', '(', sd.name, IF(s.duration_time = -1, '"
+            . " - " . _("unbegrenzt") . "', IF(sd2.name = sd.name, '', CONCAT(' - ', sd2.name))), ')'), null, null "
+            . " FROM seminare s JOIN semester_data sd ON s.start_time BETWEEN sd.beginn AND sd.ende "
+            . " LEFT JOIN semester_data sd2 ON (s.start_time + s.duration_time BETWEEN sd2.beginn AND sd2.ende))");
         IndexManager::log("Seminar objects created");
-        IndexManager::createIndex("(SELECT object_id, CONCAT_WS(' ', Veranstaltungsnummer, Name), " . IndexManager::relevance(self::RATING_SEMINAR, 'start_time') . " FROM seminare " . IndexManager::createJoin('seminar_id') . ")");
+        IndexManager::createIndex("(SELECT object_id, CONCAT_WS(' ', Veranstaltungsnummer, Name), "
+            . IndexManager::relevance(self::RATING_SEMINAR, 'start_time') . " FROM seminare "
+            . IndexManager::createJoin('seminar_id') . ")");
         IndexManager::log("Indexed name");
-        IndexManager::createIndex("(SELECT object_id, Untertitel, " . IndexManager::relevance(self::RATING_SEMINAR_SUBTITLE, 'start_time') . " FROM seminare " . IndexManager::createJoin('seminar_id') . " WHERE Untertitel != '')");
+        IndexManager::createIndex("(SELECT object_id, Untertitel, "
+            . IndexManager::relevance(self::RATING_SEMINAR_SUBTITLE, 'start_time') . " FROM seminare "
+            . IndexManager::createJoin('seminar_id') . " WHERE Untertitel != '')");
         IndexManager::log("Indexed subtitle");
-        IndexManager::createIndex("(SELECT object_id, Beschreibung, " . IndexManager::relevance(self::RATING_SEMINAR_OTHER, 'start_time') . " FROM seminare " . IndexManager::createJoin('seminar_id') . " WHERE Beschreibung != '')");
+        IndexManager::createIndex("(SELECT object_id, Beschreibung, "
+            . IndexManager::relevance(self::RATING_SEMINAR_OTHER, 'start_time') . " FROM seminare "
+            . IndexManager::createJoin('seminar_id') . " WHERE Beschreibung != '')");
         IndexManager::log("Indexed description");
-        IndexManager::createIndex("(SELECT object_id, Sonstiges, " . IndexManager::relevance(self::RATING_SEMINAR_OTHER, 'start_time') . " FROM seminare " . IndexManager::createJoin('seminar_id') . " WHERE Sonstiges != '')");
+        IndexManager::createIndex("(SELECT object_id, Sonstiges, "
+            . IndexManager::relevance(self::RATING_SEMINAR_OTHER, 'start_time') . " FROM seminare "
+            . IndexManager::createJoin('seminar_id') . " WHERE Sonstiges != '')");
         IndexManager::log("Indexed other");
     }
 
