@@ -88,7 +88,7 @@ class ShowController extends StudipController
         }
 
         // display runtime
-        if (Studip\ENV == 'development' && $this->search->time && $GLOBALS['perm']->have_perm('admin')) {
+        if ($this->search->time && $GLOBALS['perm']->have_perm('admin')) {
             $sidebar->addWidget($this->getRuntimeWidget());
         }
     }

@@ -72,12 +72,11 @@ class GlobalSearch extends SearchType {
     private function getResultSet($type)
     {
         $is_root = $GLOBALS['perm']->have_perm('root');
-        $related_types = array('seminar', 'forumentry', 'document');
         $search = $this->getSearchQuery($this->query);
         $statement = DBManager::get()->prepare("SELECT search_object.*, text FROM search_object JOIN "
             . $search . " USING (object_id) WHERE "
             // show related search results if you searched for a username and a different 'type' is selected
-            . ($type ? (in_array($type, $related_types) && $this->query ? " type IN ('user', 'seminar', 'forumentry', 'document') " : (' type = :type ')) : ' 1 ')
+            . ($type ? (" type != 'user' AND type = :type ") : " type != 'user' ")
             . " GROUP BY object_id "
             . ($this->query ? " " : " LIMIT " . $this->limit));
 
@@ -87,11 +86,15 @@ class GlobalSearch extends SearchType {
         $statement->execute();
         $results = $statement->fetchAll(PDO::FETCH_ASSOC);
 
+        // test general access (visibility with get_vis_query())
+        if (!$type || $type != 'institute' || $this->query) {
+            $this->addVisibleUsers($results, $search);
+        }
+
         // some information that just needs to be accumulated once
         $course_ids = $this->getCourseIdsForUser();
         $sem_classes = SemClass::getClasses();
         $institute_ids = $this->getInstituteIds();
-        $visible_user_ids = $this->getVisibleUserIds();
 
         // go through the results and delete everything that should not be seen
         // TODO create separate methods
@@ -100,11 +103,6 @@ class GlobalSearch extends SearchType {
             $cnt++;
             switch ($result['type']) {
                 case 'user':
-                    // test general access (visibility with get_vis_query())
-                    if (!in_array($result['range_id'], $visible_user_ids)) {
-                        unset($results[$key]);
-                        break;
-                    }
                     // add related objects for a given search string (case: there is no Username for an
                     // 'author' of a seminar/forumentry/document stored in the search_index table, so you need
                     // a search query that finds seminars etc. by username. Reason: if the name of a
@@ -211,6 +209,24 @@ class GlobalSearch extends SearchType {
             }
         }
         return $results;
+    }
+
+    /**
+     * @param $results
+     * @param $search
+     */
+    private function addVisibleUsers(&$results, $search)
+    {
+        $statement = DBManager::get()->prepare("SELECT search_object.*, text FROM search_object JOIN " . $search
+            . " USING (object_id) JOIN auth_user_md5 ON auth_user_md5.user_id = search_object.range_id "
+            . " LEFT JOIN user_visibility ON search_object.range_id = user_visibility.user_id "
+            . " WHERE " . get_vis_query('auth_user_md5', 'search') . " GROUP BY object_id "
+            . ($this->query ? " " : " LIMIT " . $this->limit));
+        $statement->execute();
+        $users = $statement->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($users as $user) {
+            $results[] = $user;
+        }
     }
 
     /**
@@ -392,18 +408,6 @@ class GlobalSearch extends SearchType {
         }
         // the option 'all seminar types' is selected
         return true;
-    }
-
-    /**
-     * @return array
-     */
-    private function getVisibleUserIds()
-    {
-        // TODO gets too many users... should be dependend on the search query / found users
-        $users = User::findBySQL(" LEFT JOIN user_visibility USING (user_id) "
-            . " JOIN search_object ON search_object.range_id = user_id WHERE "
-            . get_vis_query('auth_user_md5', 'search'));
-        return $user_ids = array_column($users, 'user_id');
     }
 
     /**
