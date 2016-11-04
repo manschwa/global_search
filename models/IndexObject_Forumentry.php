@@ -24,6 +24,16 @@ class IndexObject_Forumentry extends IndexObject
         IndexManager::createObjects("(SELECT topic_id, 'forumentry', COALESCE(NULLIF(TRIM(forum_entries.name), ''), '" . _('Forumeintrag') . "'), seminar_id, null FROM forum_entries JOIN seminare USING (seminar_id) WHERE seminar_id != topic_id)");
         IndexManager::createIndex("(SELECT object_id, name, " . IndexManager::relevance(self::RATING_FORUMENTRY_TITLE, 'forum_entries.chdate') . " FROM forum_entries" . IndexManager::createJoin('topic_id') . " WHERE name != '')");
         IndexManager::createIndex("(SELECT object_id, SUBSTRING_INDEX(content, '<admin_msg', 1), " . IndexManager::relevance(self::RATING_FORUMENTRY, 'forum_entries.chdate') . " FROM forum_entries" . IndexManager::createJoin('topic_id') . " WHERE content != '')");
+
+        $statement = DBManager::get()->prepare("SELECT search_object.*, text FROM search_object JOIN search_index "
+            . " USING (object_id) WHERE type = 'forumentry' ");
+        $statement->execute();
+        $forumentries = $statement->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($forumentries as $forumentry) {
+            if (strstr($forumentry['text'], '<')) {
+                $this->update(null, $forumentry['range_id']);
+            }
+        }
     }
 
     /**
@@ -127,10 +137,14 @@ class IndexObject_Forumentry extends IndexObject
 
         // insert new ForumEntry into search_index
         $object_id_query = IndexManager::getSearchObjectId($topic_id);
-        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $forumentry['name'] . "', "
-            . IndexManager::relevance(self::RATING_FORUMENTRY_TITLE, $forumentry['chdate']) . " ) ");
-        IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . ForumEntry::killEdit($forumentry['content']) . "', "
-            . IndexManager::relevance(self::RATING_FORUMENTRY, $forumentry['chdate']) . " ) ");
+        if ($title != 'Kein Titel' && $title != '') {
+            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . $title . "', "
+                . IndexManager::relevance(self::RATING_FORUMENTRY_TITLE, $forumentry['chdate']) . " ) ");
+        }
+        if ($content = $forumentry['content']) {
+            IndexManager::createIndex(" VALUES (" . $object_id_query . ", '" . ForumEntry::killFormat(ForumEntry::killEdit($content)) . "', "
+                . IndexManager::relevance(self::RATING_FORUMENTRY, $forumentry['chdate']) . " ) ");
+        }
     }
 
     /**
