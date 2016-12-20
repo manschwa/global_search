@@ -141,7 +141,7 @@ class ShowController extends StudipController
         $facet_count = ($this->search->resultTypes[$type] ? " ({$this->search->resultTypes[$type]})" : '');
         return new LinkElement($object::getType() . $facet_count,
             $this->url_for('show/set_category_filter/' . $type),
-            ($this->getCategoryFilter() === $type ? Icon::create('arr_1right') : ''),
+            ($this->getCategoryFilter() === $type ? Icon::create('arr_1right') : null),
             ($this->getCategoryFilter() === $type ? array('class' => 'highlighted') : ''));
     }
 
