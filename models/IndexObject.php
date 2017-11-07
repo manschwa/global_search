@@ -218,7 +218,7 @@ class IndexObject
         $file_types[4]  = _('Audio');
         $file_types[5]  = _('Video');
         $file_types[6]  = _('Tabellen');
-        $file_types[7]  = _('Pr‰sentationen');
+        $file_types[7]  = _('Pr√§sentationen');
         $file_types[8]  = _('Komprimierte Dateien');
         return $file_types;
     }
@@ -249,7 +249,7 @@ class IndexObject
             case 8: // Compressed Files
                 return "('zip', 'rar', 'tz', 'rz', 'bz2', '7zip', '7z', 'tar', 'tgz')";
             default:
-                throw new InvalidArgumentException(_('Der ausgew‰hlte Dateityp existiert leider nicht.'));
+                throw new InvalidArgumentException(_('Der ausgew√§hlte Dateityp existiert leider nicht.'));
         }
     }
 
@@ -273,7 +273,7 @@ class IndexObject
             case 8: // Compressed Files
                 return array('zip', 'rar', 'tz', 'rz', 'bz2', '7zip', '7z', 'tar', 'tgz');
             default:
-                throw new InvalidArgumentException(_('Der ausgew‰hlte Dateityp existiert leider nicht.'));
+                throw new InvalidArgumentException(_('Der ausgew√§hlte Dateityp existiert leider nicht.'));
         }
     }
 

@@ -205,7 +205,7 @@ class GlobalSearch extends SearchType {
                     }
                     break;
                 default:
-                    throw new InvalidArgumentException(_('Der ausgew‰hlte IndexObject_Type existiert leider nicht.'));
+                    throw new InvalidArgumentException(_('Der ausgew√§hlte IndexObject_Type existiert leider nicht.'));
             }
         }
         return $results;

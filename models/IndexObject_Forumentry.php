@@ -11,7 +11,7 @@ class IndexObject_Forumentry extends IndexObject
      */
     public function __construct()
     {
-        $this->setName(_('Forumeintr‰ge'));
+        $this->setName(_('Forumeintr√§ge'));
         $this->setSelects($this->getSelectFilters());
     }
 
@@ -101,7 +101,7 @@ class IndexObject_Forumentry extends IndexObject
      */
     public static function getType()
     {
-        return _('Forumeintr‰ge');
+        return _('Forumeintr√§ge');
     }
 
     /**

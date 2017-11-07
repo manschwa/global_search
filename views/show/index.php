@@ -2,14 +2,14 @@
 <form novalidate="novalidate" style="text-align: center">
     <input type="text" style="width: 35%; vertical-align: middle; margin: 10px" name="search" tabindex="1" value="<?= $this->search->query ?>" placeholder="<?= _('Suchbegriff') ?>">
     <?= \Studip\Button::create(_('Suchen'), 'searching')?>
-    <?= \Studip\Button::create(_('Zurücksetzen'), 'reset')?>
+    <?= \Studip\Button::create(_('ZurÃ¼cksetzen'), 'reset')?>
 </form>
 
 <? if ($this->search->query): ?>
     <? if ($this->search->error): ?>
         <p><?= htmlReady($this->search->error) ?></p>
     <? else: ?>
-        <h3><?= sprintf(_('Suchergebnisse für "%s"'), htmlReady($this->search->query)) ?></h3>
+        <h3><?= sprintf(_('Suchergebnisse fÃ¼r "%s"'), htmlReady($this->search->query)) ?></h3>
     <? endif; ?>
 <? endif; ?>
 
