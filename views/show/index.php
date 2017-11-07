@@ -1,8 +1,14 @@
 <!-- Searchbar -->
-<form novalidate="novalidate" style="text-align: center">
-    <input type="text" style="width: 35%; vertical-align: middle; margin: 10px" name="search" tabindex="1" value="<?= $this->search->query ?>" placeholder="<?= _('Suchbegriff') ?>">
-    <?= \Studip\Button::create(_('Suchen'), 'searching')?>
-    <?= \Studip\Button::create(_('Zurücksetzen'), 'reset')?>
+<form class="default" novalidate="novalidate">
+    <fieldset>
+        <label>
+            <input type="text" name="search" autofocus value="<?= $this->search->query ?>" placeholder="<?= _('Suchbegriff') ?>">
+        </label>
+    </fieldset>
+    <footer>
+        <?= \Studip\Button::create(_('Suchen'), 'searching')?>
+        <?= \Studip\Button::create(_('Zurücksetzen'), 'reset')?>
+    </footer>
 </form>
 
 <? if ($this->search->query): ?>
