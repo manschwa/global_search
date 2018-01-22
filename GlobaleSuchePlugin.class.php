@@ -20,38 +20,11 @@ class GlobaleSuchePlugin extends StudIPPlugin implements SystemPlugin {
         Navigation::getItem('/search')->setURL(PluginEngine::GetURL($this, array(), 'show/index'));
 
         PageLayout::addStylesheet($this->getPluginURL() . '/assets/globalsearch.css');
-        PageLayout::addScript($this->getPluginURL() . '/assets/globalsearch.js');
-
-//        // Quicksearchhook
-//        PageLayout::addBodyElements(QuickSearch::get("seminar", new GlobalSearch())
-//                ->setAttributes(array("placeholder" => _(Suchen)))
-//                ->setInputClass("quicksearchbox globalsearch")
-//                ->render());
-
-        // Notifications for Users
-        NotificationCenter::addObserver(new IndexObject_User, "insert", "UserDidCreate");
-        NotificationCenter::addObserver(new IndexObject_User, "update", "UserDidUpdate");
-        NotificationCenter::addObserver(new IndexObject_User, "delete", "UserDidDelete");
-        // Notifications for Courses
-        NotificationCenter::addObserver(new IndexObject_Seminar, "insert", "CourseDidCreate");
-        NotificationCenter::addObserver(new IndexObject_Seminar, "update", "CourseDidUpdate");
-        NotificationCenter::addObserver(new IndexObject_Seminar, "delete", "CourseDidDelete");
-        // Notifications for Documents
-        NotificationCenter::addObserver(new IndexObject_Document, "insert", "DocumentDidCreate");
-        NotificationCenter::addObserver(new IndexObject_Document, "update", "DocumentDidUpdate");
-        NotificationCenter::addObserver(new IndexObject_Document, "delete", "DocumentDidDelete");
-        // Notifications for Institutes
-        NotificationCenter::addObserver(new IndexObject_Institute, "insert", "InstituteDidCreate");
-        NotificationCenter::addObserver(new IndexObject_Institute, "update", "InstituteDidUpdate");
-        NotificationCenter::addObserver(new IndexObject_Institute, "delete", "InstituteDidDelete");
-        // Notifications for Forumentries
-        NotificationCenter::addObserver(new IndexObject_Forumentry, "insert", "ForumAfterInsert");
-        NotificationCenter::addObserver(new IndexObject_Forumentry, "update", "ForumAfterUpdate");
-        NotificationCenter::addObserver(new IndexObject_Forumentry, "delete", "ForumBeforeDelete");
+        PageLayout::addScript('globalsearch.js');
+        PageLayout::addScript('search.js');
     }
 
     public function initialize() {
-
     }
 
     public function perform($unconsumed_path) {

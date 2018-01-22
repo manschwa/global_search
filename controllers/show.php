@@ -1,4 +1,5 @@
 <?php
+//require "../../../plugins_packages/intelec/Podium/Podium.php";
 
 class ShowController extends StudipController
 {
@@ -10,7 +11,7 @@ class ShowController extends StudipController
     {
         parent::__construct($dispatcher);
         $this->plugin = $dispatcher->plugin;
-        $this->search = new GlobalSearch();
+        //$this->search = new GlobalSearch();
     }
 
     /**
@@ -38,6 +39,11 @@ class ShowController extends StudipController
      */
     public function index_action()
     {
+        Helpbar::get()->addPlainText(_('Allgemein'), _('Foobar.'));
+        Helpbar::get()->addPlainText(_('Dateisuche'), _('Die Dateisuche kann über einen Schrägstrich (/) verfeinert werden. Beispiel: "Meine Veranstaltung/Datei" zeigt alle Dateien die das Wort "Datei" enthalten und in "Meine Veranstaltung" sind an. Die Veranstaltung kann auch auf einen Teil (z.B. Veran/Datei) oder auf die Großbuchstaben bzw. auch deren Abkürzung (z.B. MV/Datei oder V/Datei) beschränkt werden.'));
+        Helpbar::get()->addPlainText(_('Platzhalter'), _('_ ist Platzhalter für ein beliebiges Zeichen. % ist Platzhalter für beliebig viele Zeichen. Me_er findet Treffer für Meyer und Meier. M__er findet zusätzlich auch Mayer und Maier. M%er findet alle vorherigen Treffer aber auch Münchner.'));
+
+        //var_dump(Podium::getTypes());die;
         if (Request::submitted('reset')) {
             $_SESSION['global_search'] = null;
         }
@@ -67,18 +73,18 @@ class ShowController extends StudipController
 
         // add the semester filter on the top level
         // or the category-filter for a chosen category
-        if ($type = $_SESSION['global_search']['category']) {
-            $class = $this->search->getClass($type);
-            $object = new $class;
-            $filter_widget = $this->getFacetsWidget($object);
-        } else {
+//        if ($type = $_SESSION['global_search']['category']) {
+//            $class = $this->search->getClass($type);
+//            $object = new $class;
+//            $filter_widget = $this->getFacetsWidget($object);
+//        } else {
             $filter_widget = $this->getSemesterFilterWidget();
-        }
+//        }
 
         // initiate the search
-        if ($_SESSION['global_search']['query'] || $_SESSION['global_search']['category']) {
-            $this->search->query($_SESSION['global_search']['query'], $this->getCategoryFilter());
-        }
+//        if ($_SESSION['global_search']['query'] || $_SESSION['global_search']['category']) {
+//            $this->search->query($_SESSION['global_search']['query'], $this->getCategoryFilter());
+//        }
 
         // display categories and (their optional) filters
         $category_widget = $this->getCategoryWidget();
@@ -88,9 +94,9 @@ class ShowController extends StudipController
         }
 
         // display runtime
-        if (Studip\ENV == 'development' && $this->search->time && $GLOBALS['perm']->have_perm('admin')) {
-            $sidebar->addWidget($this->getRuntimeWidget());
-        }
+//        if (Studip\ENV == 'development' && $this->search->time && $GLOBALS['perm']->have_perm('admin')) {
+//            $sidebar->addWidget($this->getRuntimeWidget());
+//        }
     }
 
     /**
@@ -102,30 +108,25 @@ class ShowController extends StudipController
     private function getCategoryWidget()
     {
         $category_widget = new LinksWidget();
-        $result_count = $this->search->count ? " ({$this->search->count})" : '';
+        $category_widget->addCSSClass('sidebar-views');
+//        $result_count = $this->search->count ? " ({$this->search->count})" : '';
         $category_widget->setTitle(_('Ergebnisse'));
 
-        // offer a reset option or a 'show all results' option
-        if ($this->search->query) {
-            $link_name = _('Alle Ergebnisse') . ($this->getCategoryFilter() ? '' : $result_count);
-        } elseif ($this->getCategoryFilter()) {
-            $link_name = _('Auswahl aufheben');
-        }
+        $link_name = _('Alle Ergebnisse') . ($this->getCategoryFilter() ? '' : $result_count);
         $reset_element = new LinkElement($link_name,
-            $this->url_for('show/reset_category_filter'),
-            ($this->getCategoryFilter() ? Icon::create('arr_2left') : Icon::create('arr_1right')),
-            ($this->getCategoryFilter() ? '' : array('class' => 'highlighted')));
-        $category_widget->addElement($reset_element);
-
-        // list all possible categories as Links
-        $index_object_types = $this->search->getIndexObjectTypes();
-        foreach ($index_object_types as $type) {
-            $class = $this->search->getClass($type);
-            $object = new $class;
-            if (!$_SESSION['global_search']['query'] || $this->search->resultTypes[$type] || $_SESSION['global_search']['category'] === $type) {
-                $category_widget->addElement($this->categoryLink($type, $object));
-            }
+            $this->url_for('show/reset_category_filter'));
+        if ($this->getCategoryFilter() === $type) {
+            $reset_element->setActive();
         }
+        $category_widget->addElement($reset_element);
+//
+//        // list all possible categories as Links
+//        $index_object_types = $this->search->getIndexObjectTypes();
+//        foreach ($index_object_types as $type) {
+//            $class = $this->search->getClass($type);
+//            $object = new $class;
+//            $category_widget->addElement($this->categoryLink($type, $object));
+//        }
         return $category_widget;
     }
 
@@ -138,11 +139,14 @@ class ShowController extends StudipController
      */
     private function categoryLink($type, $object)
     {
-        $facet_count = ($this->search->resultTypes[$type] ? " ({$this->search->resultTypes[$type]})" : '');
-        return new LinkElement($object::getType() . $facet_count,
-            $this->url_for('show/set_category_filter/' . $type),
-            ($this->getCategoryFilter() === $type ? Icon::create('arr_1right') : null),
-            ($this->getCategoryFilter() === $type ? array('class' => 'highlighted') : ''));
+//        $facet_count = ($this->search->resultTypes[$type] ? " ({$this->search->resultTypes[$type]})" : '');
+//        $link_element = new LinkElement($object::getType() . $facet_count,
+//            $this->url_for('show/set_category_filter/' . $type));
+//
+//        if ($this->getCategoryFilter() === $type) {
+//            $link_element->setActive(true);
+//        }
+//        return $link_element;
     }
 
     /**
@@ -155,37 +159,37 @@ class ShowController extends StudipController
      */
     private function getFacetsWidget($object)
     {
-        $options_widget = new OptionsWidget;
-        $options_widget->setTitle(_('Filtern nach'));
-
-        // Select-Filters
-        if ($select_filters = $object->getSelects()) {
-            foreach ($select_filters as $name => $selects) {
-                $selected = $_SESSION['global_search']['selects'][$name];
-                $options_widget->addElement(new WidgetElement($name));
-                $options_widget->addSelect($name,                       // Label
-                    $this->url_for('show/set_select/' . $name),         // URL
-                    $name,                                              // Name
-                    $selects,                                           // all options
-                    // need to do this because of implicit type conversion (string to int in associative array)
-                    preg_match('/^[1-9][0-9]*$/', $selected) ? (int)$selected : $selected);      // selected option
-            }
-        }
-        // Facet-Filters (checkboxes)
-        if ($filter_options = $object->getFacets()) {
-            if ($this->search->getActiveFilters()) {
-                $reset_element = new LinkElement(_('Auswahl aufheben'), $this->url_for('show/reset_filter'));
-                $options_widget->addElement($reset_element);
-            }
-
-            foreach ($filter_options as $facet) {
-                $options_widget->addCheckbox($facet,                            // Name
-                    $_SESSION['global_search']['facets'][$facet],               // state
-                    $this->url_for('show/set_facet/' . $facet . '/' . true),    // check action
-                    $this->url_for('show/set_facet/' . $facet . '/' . false));  // uncheck action
-            }
-        }
-        return $options_widget;
+//        $options_widget = new OptionsWidget;
+//        $options_widget->setTitle(_('Filtern nach'));
+//
+//        // Select-Filters
+//        if ($select_filters = $object->getSelects()) {
+//            foreach ($select_filters as $name => $selects) {
+//                $selected = $_SESSION['global_search']['selects'][$name];
+//                $options_widget->addElement(new WidgetElement($name));
+//                $options_widget->addSelect($name,                       // Label
+//                    $this->url_for('show/set_select/' . $name),         // URL
+//                    $name,                                              // Name
+//                    $selects,                                           // all options
+//                    // need to do this because of implicit type conversion (string to int in associative array)
+//                    preg_match('/^[1-9][0-9]*$/', $selected) ? (int)$selected : $selected);      // selected option
+//            }
+//        }
+//        // Facet-Filters (checkboxes)
+//        if ($filter_options = $object->getFacets()) {
+//            if ($this->search->getActiveFilters()) {
+//                $reset_element = new LinkElement(_('Auswahl aufheben'), $this->url_for('show/reset_filter'));
+//                $options_widget->addElement($reset_element);
+//            }
+//
+//            foreach ($filter_options as $facet) {
+//                $options_widget->addCheckbox($facet,                            // Name
+//                    $_SESSION['global_search']['facets'][$facet],               // state
+//                    $this->url_for('show/set_facet/' . $facet . '/' . true),    // check action
+//                    $this->url_for('show/set_facet/' . $facet . '/' . false));  // uncheck action
+//            }
+//        }
+//        return $options_widget;
     }
 
     /**
@@ -197,19 +201,19 @@ class ShowController extends StudipController
      */
     private function getSemesterFilterWidget()
     {
-        $options_widget = new OptionsWidget;
-        $options_widget->setTitle(_('Semesterfilter'));
-        $index_object = new IndexObject();
-        $semesters = $index_object->getSemesters();
-        $name = _('Semester');
-        $selected = $_SESSION['global_search']['selects'][$name];
-        $options_widget->addSelect($name,                       // Label
-            $this->url_for('show/set_select/' . $name),         // URL
-            $name,                                              // Name
-            $semesters,
-            // need to do this because of implicit type conversion (string to int in associative array)
-            preg_match('/^[1-9][0-9]*$/', $selected) ? (int)$selected : $selected);      // selected option
-        return $options_widget;
+//        $options_widget = new OptionsWidget;
+//        $options_widget->setTitle(_('Semesterfilter'));
+//        $index_object = new IndexObject();
+//        $semesters = $index_object->getSemesters();
+//        $name = _('Semester');
+//        $selected = $_SESSION['global_search']['selects'][$name];
+//        $options_widget->addSelect($name,                       // Label
+//            $this->url_for('show/set_select/' . $name),         // URL
+//            $name,                                              // Name
+//            $semesters,
+//            // need to do this because of implicit type conversion (string to int in associative array)
+//            preg_match('/^[1-9][0-9]*$/', $selected) ? (int)$selected : $selected);      // selected option
+//        return $options_widget;
     }
 
     /**
@@ -220,10 +224,10 @@ class ShowController extends StudipController
      */
     private function getRuntimeWidget()
     {
-        $runtime_widget = new SidebarWidget();
-        $runtime_widget->setTitle(_('Laufzeit'));
-        $runtime_widget->addElement(new WidgetElement($this->search->time));
-        return $runtime_widget;
+//        $runtime_widget = new SidebarWidget();
+//        $runtime_widget->setTitle(_('Laufzeit'));
+//        $runtime_widget->addElement(new WidgetElement($this->search->time));
+//        return $runtime_widget;
     }
 
     /**

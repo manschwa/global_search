@@ -3,5 +3,3 @@ pluginclassname=GlobaleSuchePlugin
 origin=virtUOS
 version=1.0
 studipMinVersion=3.4
-dbscheme=sql/search_install.sql
-uninstalldbscheme=sql/search_uninstall.sql
